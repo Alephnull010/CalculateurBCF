@@ -1,0 +1,50 @@
+{
+    "_notice": "Obligatoires: pH, matiere_organique, conc_air",
+
+    "pH":                       8.0,
+    "_matiere_organique_notice": "fraction massique",
+    "matiere_organique":        0.30,
+
+    "_optionnels": "Si absents alors valeurs estimées automatiquement",
+    "pct_argile":               10.0,
+    "pct_limon":                null,
+    "temperature":              null,
+
+    "_unite air" : "µg/m³",
+    "conc_air": {
+        "naphtalène":               4e-12,
+        "anthracène":               4e-12,
+        "phénanthrène":             4e-12,
+        "benzo(a)pyrène":           4e-12,
+        "acénaphtylène":            4e-12,
+        "acénaphtène":              4e-12,
+        "fluorène":                 4e-12,
+        "fluoranthène":             4e-12,
+        "pyrène":                   4e-12,
+        "benzo(a)anthracène":       4e-12,
+        "chrysène":                 4e-12,
+        "benzo(b)fluoranthène":     4e-12,
+        "benzo(k)fluoranthène":     4e-12,
+        "indéno(1,2,3-cd)pyrène":   4e-12,
+        "dibenzo(a,h)anthracène":   4e-12,
+        "benzo(g,h,i)pérylène":     4e-12,
+        "benzène":                  7e-9,
+        "toluène":                  7e-9,
+        "éthylbenzène":             7e-9,
+        "o-xylène":                 7e-9,
+        "m-xylène":                 7e-9,
+        "p-xylène":                 7e-9,
+        "chloroforme":              7e-9,
+        "tétrachloroéthylène":      7e-9
+    },
+
+    "_conc_sol_metaux_notice": "Optionnel — concentrations sol mesurées sur site (mg/kg MS). Si renseigné, affine le Br_E métaux via la régression BAPPET (Br_E = exp(A + B*ln(Cs))) quand la régression est retenue et Cs dans le domaine de validité.",
+    "conc_sol_metaux": {},
+
+    "_conc_sol_pcb_notice": "Optionnel — concentrations sol PCB mesurées sur site (mg/kg MS). Ex: {\"PCB_28\": 0.001, \"PCB_52\": 0.0005}",
+    "conc_sol_pcb": {},
+
+    "_conc_air_gaz_pcb_notice": "Optionnel — concentrations air gazeux PCB mesurées sur site (µg/m³). Ex: {\"PCB_28\": 1e-6}",
+    "conc_air_gaz_pcb": {}
+
+}

@@ -1,0 +1,205 @@
+import json
+import os
+import math
+
+# --- Clés obligatoires dans le JSON ---
+SOL_REQUIRED_KEYS = [
+    "pH",
+    "matiere_organique",
+    "conc_air",
+]
+
+# --- Clés optionnelles avec leurs valeurs par défaut ---
+SOL_OPTIONAL_KEYS = {
+    "temperature":  17.5,   # °C — Météo-France si non fourni
+    "pct_argile":   None,   # % — si None → Rawls utilisé pour densité
+    "pct_limon":    None,   # % — si None → Rawls utilisé pour densité
+}
+
+
+# ─────────────────────────────────────────────
+# Fonctions d'estimation (pédotransfer functions)
+# ─────────────────────────────────────────────
+
+def estimate_densite(MO: float,
+                     pct_argile: float = None,
+                     pct_limon: float = None) -> float:
+    """
+    Estime la densité apparente du sol (kg/dm³)
+
+    Si argile + limon disponibles → Manrique & Jones (1991)
+    Sinon                         → Rawls (1983)
+    """
+    if pct_argile is not None and pct_limon is not None:
+        # Manrique & Jones (1991)
+        da = (1.519
+              - 0.0234 * pct_argile
+              - 0.00078 * pct_limon
+              - 0.59 * MO)
+    else:
+        # Rawls (1983) — fallback
+        da = 1.66 - 0.318 * math.sqrt(MO)
+
+    # Bornes réalistes
+    return round(max(0.8, min(da, 1.8)), 3)
+
+
+def estimate_fraction_eau(MO: float,
+                          pct_argile: float = None) -> float:
+    """
+    Estime la fraction volumique en eau à la capacité au champ (m³/m³)
+
+    Si argile disponible → Saxton & Rawls (2006) simplifié
+    Sinon               → valeur par défaut INERIS (0.30)
+    """
+    if pct_argile is not None:
+        # Saxton & Rawls (2006) simplifié
+        fw = (0.299
+              - 0.251 * MO
+              + 0.195 * (pct_argile / 100))
+    else:
+        fw = 0.30   # valeur par défaut INERIS
+
+    # Bornes réalistes
+    return round(max(0.1, min(fw, 0.6)), 3)
+
+
+def estimate_fraction_air(densite: float,
+                          fraction_eau: float) -> float:
+    """
+    Estime la fraction volumique en air (m³/m³)
+
+    fraction_air = porosité totale - fraction_eau
+    porosité     = 1 - (Da / Dr)
+    Dr           = densité réelle des particules = 2.65 kg/dm³
+    """
+    Dr       = 2.65
+    porosite = 1.0 - (densite / Dr)
+    fa       = porosite - fraction_eau
+
+    # Bornes réalistes
+    return round(max(0.0, min(fa, 0.5)), 3)
+
+
+# ─────────────────────────────────────────────
+# Validation
+# ─────────────────────────────────────────────
+
+def validate_sol(sol: dict, site_name: str) -> None:
+    """
+    Vérifie la cohérence des paramètres sol calculés
+    """
+    # Fractions volumiques
+    total = sol["fraction_eau"] + sol["fraction_air"]
+    if total >= 1.0:
+        raise ValueError(
+            f"fraction_eau ({sol['fraction_eau']}) + "
+            f"fraction_air ({sol['fraction_air']}) = {total:.3f} >= 1.0 — "
+            f"vérifier les paramètres sol de site_{site_name}.json"
+        )
+
+    # Densité
+    if not (0.8 <= sol["densite"] <= 1.8):
+        raise ValueError(
+            f"Densité estimée = {sol['densite']} hors plage [0.8 ; 1.8] — "
+            f"vérifier %MO, %argile, %limon"
+        )
+
+    # MO
+    if not (0.0 < sol["matiere_organique"] < 1.0):
+        raise ValueError(
+            f"matiere_organique = {sol['matiere_organique']} — "
+            f"doit être une fraction (ex: 0.17 pour 17%)"
+        )
+
+    # conc_air — vérifie que tous les polluants sont présents
+    from data.polluants import POLLUANTS
+    missing_air = [p for p in POLLUANTS if p not in sol["conc_air"]]
+    if missing_air:
+        raise ValueError(
+            f"conc_air manquante pour : {missing_air} — "
+            f"utiliser seuil de quantification si non mesuré"
+        )
+
+
+
+# ─────────────────────────────────────────────
+# Loader principal
+# ─────────────────────────────────────────────
+
+def load_sol(site_name: str = "default") -> dict:
+    """
+    Charge et complète les paramètres sol depuis un fichier JSON.
+
+    Paramètres obligatoires dans le JSON :
+        pH, matiere_organique, conc_air, conc_sol
+
+    Paramètres optionnels (estimés automatiquement si absents) :
+        pct_argile, pct_limon, temperature
+
+    Paramètres calculés automatiquement :
+        carbone_organique, densite, fraction_eau, fraction_air
+
+    Usage :
+        sol = load_sol("site_A")
+        sol = load_sol()          # charge site_default.json
+    """
+
+    # --- Chargement JSON ---
+    path = os.path.join(
+        os.path.dirname(__file__),
+        "sites",
+        f"site_{site_name}.json"
+    )
+
+    if not os.path.exists(path):
+        raise FileNotFoundError(
+            f"Fichier site introuvable : {path}\n"
+            f"Créez un fichier data/sites/site_{site_name}.json "
+            f"en vous basant sur site_default.json"
+        )
+
+    with open(path, encoding="utf-8") as f:
+        sol = json.load(f)
+
+    # --- Validation clés obligatoires ---
+    missing = [k for k in SOL_REQUIRED_KEYS if k not in sol]
+    if missing:
+        raise ValueError(
+            f"Paramètres obligatoires manquants dans "
+            f"site_{site_name}.json : {missing}"
+        )
+
+    # --- Injection valeurs optionnelles manquantes ---
+    for key, default in SOL_OPTIONAL_KEYS.items():
+        if key not in sol:
+            sol[key] = default
+            print(f"  ℹ️  {key} non fourni → valeur par défaut : {default}")
+
+    # --- Calculs automatiques ---
+    MO         = sol["matiere_organique"]
+    pct_argile = sol.get("pct_argile")
+    pct_limon  = sol.get("pct_limon")
+
+    sol["carbone_organique"] = round(MO / 1.72, 4)
+    sol["densite"]           = estimate_densite(MO, pct_argile, pct_limon)
+    sol["fraction_eau"]      = estimate_fraction_eau(MO, pct_argile)
+    sol["fraction_air"]      = estimate_fraction_air(
+                                   sol["densite"],
+                                   sol["fraction_eau"]
+                               )
+
+    # --- Validation cohérence globale ---
+    validate_sol(sol, site_name)
+
+    # --- Résumé console ---
+    print(f"\n---------- Sol chargé : site_{site_name}")
+    print(f"   pH               = {sol['pH']}")
+    print(f"   MO               = {sol['matiere_organique']*100:.1f} %")
+    print(f"   Corg             = {sol['carbone_organique']:.4f}")
+    print(f"   Densité estimée  = {sol['densite']} kg/dm³")
+    print(f"   Fraction eau     = {sol['fraction_eau']}")
+    print(f"   Fraction air     = {sol['fraction_air']}")
+    print(f"   Température      = {sol['temperature']} °C")
+
+    return sol
