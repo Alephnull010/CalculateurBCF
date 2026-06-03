@@ -190,6 +190,9 @@ Modèle fugacité 3 compartiments. Calcule la concentration foliaire à partir d
 
 Sensible à `conc_air` : utiliser une mesure représentative du site.
 
+**Note sur la voie atmosphérique :**  
+Le terme sol `TSCF × Ceau/Csol × Q` est en kg/j (ρb normalisé par Csol) ; le terme air `Cair × gA / H` est converti de mg/j en kg/j (facteur 1e-6) pour homogénéité. Pour des concentrations en air typiques (< 1 000 µg/m³), la voie atmosphérique reste négligeable devant la voie sol dans le calcul du Br_E.
+
 ### PlantX — Trapp & Matthies (1995) — bilan de masse
 
 Modèle mécaniste à l'état pseudo-stationnaire. La chaîne de calcul est conditionnée à l'organe cible pour éviter les calculs inutiles :
@@ -201,10 +204,12 @@ Modèle mécaniste à l'état pseudo-stationnaire. La chaîne de calcul est cond
 - BCF_racine via flux de transpiration et TSCF
 
 **Uniquement si feuille ou fruit :**
-- BCF_feuille = bilan flux xylème entrant + échange atmosphérique
+- BCF_feuille = bilan flux xylème entrant + échange atmosphérique  
+  (terme air converti de mg/j en kg/j par ×1e-6 pour homogénéité avec le terme sol)
 
 **Uniquement si fruit :**
-- BCF_fruit = bilan flux phloème (depuis feuille) + échange atmosphérique
+- BCF_fruit = bilan flux phloème (depuis feuille) + échange atmosphérique  
+  (même conversion ×1e-6 sur le terme air)
 
 ---
 
@@ -216,8 +221,10 @@ Modèle mécaniste à l'état pseudo-stationnaire. La chaîne de calcul est cond
 |-----------|---------|
 | PlantX + log Kow > 5.0 | Modèle non validé pour les HAP lourds |
 | Mackay_97 + organe feuille | BCF sensible à `conc_air` — utiliser une mesure site |
-| Organe fruit + exemples hors tomate/haricot | PlantX validé sur tomate/haricot uniquement |
+| **PlantX** + organe fruit + exemples hors tomate/haricot | PlantX validé sur tomate/haricot uniquement |
 | BCF ≤ 0 | Erreur — vérifier les paramètres d'entrée |
+
+> Le warning fruit est restreint au modèle PlantX : Travis & Arms est une régression empirique générale sur parties aériennes qui ne dépend pas de la validation expérimentale tomate/haricot.
 
 Chaque modèle produit également ses propres warnings de domaine de validité (`briggs_validity`, `travis_arms_validity`).
 
