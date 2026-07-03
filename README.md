@@ -160,6 +160,8 @@ Paramètres utilisés par les modèles : `lipide`, `densite`, `evapotranspiratio
 
 `core/selector.py` choisit automatiquement le modèle selon l'organe cible, la constante de Henry (H) et le log Kow :
 
+![Logigramme de sélection du modèle](assets/logigramme_modele.png)
+
 ```
 organe = racine
     log Kow ≤ 5.0  →  Briggs
