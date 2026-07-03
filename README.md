@@ -1,4 +1,4 @@
-# Calculateur BCF sol-plante — MODUL'ERS
+# Calculateur BCF sol-plante - MODUL'ERS
 
 Calcule le facteur de bioconcentration sol-plante (Br_E) à renseigner dans l'outil MODUL'ERS (INERIS).  
 Sortie : `mg/kg_vegsec / (mg/kg_sol)`, exportée dans un fichier Excel par site.
@@ -24,7 +24,7 @@ Sortie : `mg/kg_vegsec / (mg/kg_sol)`, exportée dans un fichier Excel par site.
 
 ## 1. Principe général
 
-Le script produit le facteur de bioconcentration sol-plante pour **trois familles de polluants**, chacune avec sa propre méthodologie de calcul, puis **fusionne les résultats en une feuille Excel par catégorie végétale** (et non par pipeline) — chaque feuille liste tous les polluants applicables à cette catégorie, tous pipelines confondus :
+Le script produit le facteur de bioconcentration sol-plante pour **trois familles de polluants**, chacune avec sa propre méthodologie de calcul, puis **fusionne les résultats en une feuille Excel par catégorie végétale** (et non par pipeline) - chaque feuille liste tous les polluants applicables à cette catégorie, tous pipelines confondus :
 
 | Pipeline | Polluants | Méthode |
 |----------|-----------|---------|
@@ -48,7 +48,7 @@ Les pipelines **Métaux** et **PCB** ne partent pas de propriétés physico-chim
 ```
 CalculateurBCF/
 │
-├── main.py                  # Point d'entrée — 3 pipelines (organiques/métaux/PCB), export Excel multi-onglets
+├── main.py                  # Point d'entrée - 3 pipelines (organiques/métaux/PCB), export Excel multi-onglets
 │
 ├── core/
 │   ├── selector.py          # Choix du modèle organique selon organe, log Kow, H
@@ -56,17 +56,17 @@ CalculateurBCF/
 │   └── validator.py         # Warnings post-calcul (domaine de validité, BCF négatif…)
 │
 ├── models/
-│   ├── briggs.py            # Briggs et al. (1982) — racines
-│   ├── mackay97.py          # Hung & Mackay (1997) — feuilles volatils
-│   ├── travis_arms.py       # Travis & Arms (1988) — parties aériennes
-│   └── plantx.py            # Trapp & Matthies (1995) — bilan de masse
+│   ├── briggs.py            # Briggs et al. (1982) - racines
+│   ├── mackay97.py          # Hung & Mackay (1997) - feuilles volatils
+│   ├── travis_arms.py       # Travis & Arms (1988) - parties aériennes
+│   └── plantx.py            # Trapp & Matthies (1995) - bilan de masse
 │
 └── data/
     ├── polluants.py         # Base de données polluants organiques (HAP, BTEX, COHV)
     ├── vegetaux.py          # Paramètres des 5 catégories végétales + 9 catégories PCB (VEGETAUX_PCB)
     ├── sol.py               # Chargement, estimation et validation des paramètres sol
-    ├── metaux.py            # Pipeline BCF métaux (BAPPET) — filtres INERIS, régressions OLS, distribution
-    ├── pcb.py                # Pipeline BCF PCB (BAPPOP) — régression OLS par congénère × catégorie
+    ├── metaux.py            # Pipeline BCF métaux (BAPPET) - filtres INERIS, régressions OLS, distribution
+    ├── pcb.py                # Pipeline BCF PCB (BAPPOP) - régression OLS par congénère × catégorie
     ├── bappet/bappet.csv     # Données terrain métaux (source du pipeline Métaux)
     ├── bappop/bappop.csv     # Données terrain PCB, projet TROPHé (source du pipeline PCB)
     ├── aprifel/aprifel_pct_ms.csv  # % matière sèche par espèce (conversion MF→MS, pipeline Métaux)
@@ -81,26 +81,26 @@ CalculateurBCF/
 
 ### Polluants (`data/polluants.py`)
 
-37 substances réparties en quatre familles. **8 substances** (4 HAP, 2 BTEX, 2 COHV) sont issues du Tableau 2 INERIS DRC-05-57281 (validées expérimentalement sur tomate, haricot, laitue, carotte) ; les **29 substances restantes** complètent la couverture HAP/BTEX/COHV/HCT depuis d'autres sources (IARC92, EPI Suite, EPA SSL, TPHCWG — voir le champ `source` dans `data/polluants.py`) et sont marquées « à valider » :
+37 substances réparties en quatre familles. **8 substances** (4 HAP, 2 BTEX, 2 COHV) sont issues du Tableau 2 INERIS DRC-05-57281 (validées expérimentalement sur tomate, haricot, laitue, carotte) ; les **29 substances restantes** complètent la couverture HAP/BTEX/COHV/HCT depuis d'autres sources (IARC92, EPI Suite, EPA SSL, TPHCWG - voir le champ `source` dans `data/polluants.py`) et sont marquées « à valider » :
 
 | Famille | Substances | Issues du Tableau 2 INERIS |
 |---------|-----------|------------------------------|
 | HAP (16) | naphtalène, acénaphtylène, acénaphtène, fluorène, phénanthrène, anthracène, fluoranthène, pyrène, benzo(a)anthracène, chrysène, benzo(b)fluoranthène, benzo(k)fluoranthène, benzo(a)pyrène, indéno(1,2,3-cd)pyrène, dibenzo(a,h)anthracène, benzo(g,h,i)pérylène | naphtalène, anthracène, phénanthrène, benzo(a)pyrène (4/16) |
 | BTEX (6) | benzène, toluène, éthylbenzène, o/m/p-xylène | benzène, toluène (2/6) |
 | COHV (13) | chloroforme, tétrachloroéthylène, trichloroéthylène, cis-1,2-dichloroéthylène, trans-1,2-dichloroéthylène, 1,1-dichloroéthylène, chlorure de vinyle, 1,1,2-trichloroéthane, 1,1,1-trichloroéthane, 1,2-dichloroéthane, 1,1-dichloroéthane, tétrachlorométhane, dichlorométhane | chloroforme, tétrachloroéthylène (2/13) |
-| HCT (2) | fraction c10-c12, fraction c12-c16 | aucune (nouvelle famille, hors Tableau 2 INERIS — voir note ci-dessous) |
+| HCT (2) | fraction c10-c12, fraction c12-c16 | aucune (nouvelle famille, hors Tableau 2 INERIS - voir note ci-dessous) |
 
 Chaque polluant est défini par : `log_kow`, `log_koc`, `MW` (g/mol), `Pvap` (Pa), `H` (constante de Henry adimensionnelle).
 
-#### HCT — hydrocarbures totaux (fractions C10-C40)
+#### HCT - hydrocarbures totaux (fractions C10-C40)
 
-Les hydrocarbures pétroliers sont mesurés en laboratoire (norme ISO 16703) sous forme de fractions par bande de carbone (`Fraction C10-C12`, `C12-C16`, `C16-C20`, ... jusqu'à `C36-C40`), pas comme une substance unique — un « HC Totaux » global n'a pas de sens physico-chimique pour un calcul par organe (log Kow/H « moyen » sur un agrégat de centaines de composés très hétérogènes).
+Les hydrocarbures pétroliers sont mesurés en laboratoire (norme ISO 16703) sous forme de fractions par bande de carbone (`Fraction C10-C12`, `C12-C16`, `C16-C20`, ... jusqu'à `C36-C40`), pas comme une substance unique - un « HC Totaux » global n'a pas de sens physico-chimique pour un calcul par organe (log Kow/H « moyen » sur un agrégat de centaines de composés très hétérogènes).
 
-**Seules 2 fractions sont modélisées : `fraction c10-c12` et `fraction c12-c16`.** Leurs paramètres physico-chimiques sont un mix pondéré 70 % aliphatique / 30 % aromatique (convention par défaut faute de spéciation labo, guide wallon des sols pollués), dérivés des tables TPHCWG (1997) via Washington State Dept. of Ecology (MTCA Table 747-4 / CLARC Table 4, rev. 2022) — voir le champ `source` de chaque entrée dans `data/polluants.py` pour le détail des calculs (ordre des opérations important : dérivation par composante aliphatique/aromatique puis mix, pas l'inverse).
+**Seules 2 fractions sont modélisées : `fraction c10-c12` et `fraction c12-c16`.** Leurs paramètres physico-chimiques sont un mix pondéré 70 % aliphatique / 30 % aromatique (convention par défaut faute de spéciation labo, guide wallon des sols pollués), dérivés des tables TPHCWG (1997) via Washington State Dept. of Ecology (MTCA Table 747-4 / CLARC Table 4, rev. 2022) - voir le champ `source` de chaque entrée dans `data/polluants.py` pour le détail des calculs (ordre des opérations important : dérivation par composante aliphatique/aromatique puis mix, pas l'inverse).
 
-**Les fractions plus lourdes (C16-C20 à C36-C40) sont volontairement exclues**, pas seulement par manque de données : leur log Kow extrapolé avoisine 10, très au-delà du domaine calibré des 4 modèles du pipeline (Briggs/Travis_Arms/Mackay_97/PlantX, calés empiriquement sur log Kow ≲ 8). Cette exclusion est cohérente avec le comportement physico-chimique connu des composés très hydrophobes : la formule TSCF déjà utilisée par le pipeline (`TSCF = 0.784 × exp(-(log Kow - 1.78)² / 2.44)`, Briggs 1982, voir §5 PlantX/Mackay_97) est une courbe en cloche qui décroît fortement au-delà de log Kow ≈ 3-4 — le transfert xylémique devient quasi nul pour ces composés, qui sont majoritairement retenus par la matière organique du sol plutôt que transférés vers la plante. Ce n'est donc pas qu'une limite de calcul, mais un phénomène physique réel qui justifie l'absence de modélisation.
+**Les fractions plus lourdes (C16-C20 à C36-C40) sont volontairement exclues**, pas seulement par manque de données : leur log Kow extrapolé avoisine 10, très au-delà du domaine calibré des 4 modèles du pipeline (Briggs/Travis_Arms/Mackay_97/PlantX, calés empiriquement sur log Kow ≲ 8). Cette exclusion est cohérente avec le comportement physico-chimique connu des composés très hydrophobes : la formule TSCF déjà utilisée par le pipeline (`TSCF = 0.784 × exp(-(log Kow - 1.78)² / 2.44)`, Briggs 1982, voir §5 PlantX/Mackay_97) est une courbe en cloche qui décroît fortement au-delà de log Kow ≈ 3-4 - le transfert xylémique devient quasi nul pour ces composés, qui sont majoritairement retenus par la matière organique du sol plutôt que transférés vers la plante. Ce n'est donc pas qu'une limite de calcul, mais un phénomène physique réel qui justifie l'absence de modélisation.
 
-> **Comportement si des clés `conc_air` supplémentaires sont ajoutées** (ex. un futur bulletin labo réel avec les 8 fractions, dont les 6 exclues) : `data/sol.py::validate_sol()` ne vérifie que les clés *manquantes* par rapport à `POLLUANTS` — une clé de `conc_air` sans correspondance dans `POLLUANTS` (ex. `"fraction c16-c20"`) est **silencieusement ignorée**, sans erreur ni avertissement. Elle n'est simplement jamais lue nulle part dans le pipeline.
+> **Comportement si des clés `conc_air` supplémentaires sont ajoutées** (ex. un futur bulletin labo réel avec les 8 fractions, dont les 6 exclues) : `data/sol.py::validate_sol()` ne vérifie que les clés *manquantes* par rapport à `POLLUANTS` - une clé de `conc_air` sans correspondance dans `POLLUANTS` (ex. `"fraction c16-c20"`) est **silencieusement ignorée**, sans erreur ni avertissement. Elle n'est simplement jamais lue nulle part dans le pipeline.
 
 ### Végétaux (`data/vegetaux.py`)
 
@@ -126,9 +126,9 @@ Paramètres utilisés par les modèles : `lipide`, `densite`, `evapotranspiratio
 | `matiere_organique` | fraction massique (ex: 0.17 = 17 %) | `0.17` |
 | `conc_air` | concentration atmosphérique par polluant (µg/m³) | voir JSON |
 
-> **Note — `conc_sol` absente intentionnellement**  
+> **Note - `conc_sol` absente intentionnellement**  
 > Br_E est un facteur de transfert (ratio plante/sol) : pour les modèles racine (Briggs, PlantX) et les modèles parties aériennes sans voie atmosphérique (Travis & Arms), la concentration sol se simplifie algébriquement et n'influe pas sur le résultat.  
-> Pour les organes aériens avec voie atmosphérique (PlantX feuille/fruit, Mackay_97), c'est `conc_air` qui introduit la dépendance au site — c'est le seul paramètre de concentration nécessaire.  
+> Pour les organes aériens avec voie atmosphérique (PlantX feuille/fruit, Mackay_97), c'est `conc_air` qui introduit la dépendance au site - c'est le seul paramètre de concentration nécessaire.  
 > `conc_sol` est à renseigner directement dans MODUL'ERS pour obtenir la concentration absolue dans le végétal (`C_plante = Br_E × conc_sol`).
 
 **Paramètres optionnels** (estimés automatiquement si absents) :
@@ -144,14 +144,14 @@ Paramètres utilisés par les modèles : `lipide`, `densite`, `evapotranspiratio
 | Clé | Description | Effet si renseigné |
 |-----|-------------|---------------------|
 | `conc_sol_metaux` | `{ETM: Cs mg/kg_MS}` | Br_E métaux calculé par régression BAPPET (`exp(A + B·ln(Cs))`) si Cs dans le domaine de validité et régression retenue ; sinon fallback moyenne géométrique pondérée (voir [§7](#7-pipeline-métaux-bappet)) |
-| `conc_sol_pcb` | `{PCB_xx: Cs mg/kg_MS}` | Présent dans `site_default.json` mais **non consommé** par `data/pcb.py` à ce jour — le pipeline PCB retourne un Br générique par congénère × catégorie, pas de Br_E site-dépendant |
-| `conc_air_gaz_pcb` | `{PCB_xx: Cair µg/m³}` | Idem — champ réservé, pas encore utilisé (le calcul de Bf, BCF air→plante, est documenté comme non calculable depuis BAPPOP) |
+| `conc_sol_pcb` | `{PCB_xx: Cs mg/kg_MS}` | Présent dans `site_default.json` mais **non consommé** par `data/pcb.py` à ce jour - le pipeline PCB retourne un Br générique par congénère × catégorie, pas de Br_E site-dépendant |
+| `conc_air_gaz_pcb` | `{PCB_xx: Cair µg/m³}` | Idem - champ réservé, pas encore utilisé (le calcul de Bf, BCF air→plante, est documenté comme non calculable depuis BAPPOP) |
 
 **Paramètres calculés automatiquement par `load_sol()` :**
 
 - `carbone_organique` = MO / 1.72
-- `densite` — Manrique & Jones (1991) si argile+limon disponibles, sinon Rawls (1983)
-- `fraction_eau` — Saxton & Rawls (2006) si argile disponible, sinon 0.30 (INERIS)
+- `densite` - Manrique & Jones (1991) si argile+limon disponibles, sinon Rawls (1983)
+- `fraction_eau` - Saxton & Rawls (2006) si argile disponible, sinon 0.30 (INERIS)
 - `fraction_air` = porosité totale − fraction_eau
 
 ---
@@ -180,7 +180,7 @@ organe = fruit
 
 ## 5. Modèles de calcul (organiques)
 
-### Briggs et al. (1982) — racines, log Kow ≤ 5.0
+### Briggs et al. (1982) - racines, log Kow ≤ 5.0
 
 Régression empirique sur orge hydroponique :
 
@@ -189,16 +189,16 @@ log BCF = 0.77 × log Kow − 1.52
 ```
 
 Domaine de calibration documenté : −0.57 ≤ log Kow ≤ 3.7. Un warning est émis hors de cette plage.  
-Ne dépend que du log Kow — les paramètres végétaux ne sont pas utilisés.
+Ne dépend que du log Kow - les paramètres végétaux ne sont pas utilisés.
 
 **Traitement des limites de validité :**
 
 | Limite | Comportement | Justification |
 |--------|-------------|---------------|
 | log Kow > 5.0 | Bascule sur PlantX (dans le sélecteur) | Briggs non fiable pour les HAP lourds |
-| log Kow < −0.57 | Warning post-calcul uniquement, Briggs maintenu | Composés en dessous de cette limite rares en contexte sites pollués — un avertissement est jugé suffisant |
+| log Kow < −0.57 | Warning post-calcul uniquement, Briggs maintenu | Composés en dessous de cette limite rares en contexte sites pollués - un avertissement est jugé suffisant |
 
-### Travis & Arms (1988) — parties aériennes
+### Travis & Arms (1988) - parties aériennes
 
 Régression empirique sur végétaux de champ :
 
@@ -217,7 +217,7 @@ DRC-05-57281) porte principalement sur les fruits (tomate, haricot).
 Prédit les valeurs centrales des observations sans caractère conservatoire 
 (McKone & Maddalena, 2007). Non fiable au-delà de log Kow = 8.0.
 
-### Hung & Mackay (1997) — feuilles, composés volatils (H > 0.1)
+### Hung & Mackay (1997) - feuilles, composés volatils (H > 0.1)
 
 Modèle fugacité 3 compartiments. Calcule la concentration foliaire à partir de deux voies d'entrée :
 - voie racinaire via le flux de transpiration (TSCF) ;
@@ -228,7 +228,7 @@ Sensible à `conc_air` : utiliser une mesure représentative du site.
 **Note sur la voie atmosphérique :**  
 Le terme sol `TSCF × Ceau/Csol × Q` est en kg/j (ρb normalisé par Csol) ; le terme air `Cair × gA / H` est converti de mg/j en kg/j (facteur 1e-6) pour homogénéité. Pour des concentrations en air typiques (< 1 000 µg/m³), la voie atmosphérique reste négligeable devant la voie sol dans le calcul du Br_E.
 
-### PlantX — Trapp & Matthies (1995) — bilan de masse
+### PlantX - Trapp & Matthies (1995) - bilan de masse
 
 Modèle mécaniste à l'état pseudo-stationnaire. La chaîne de calcul est conditionnée à l'organe cible pour éviter les calculs inutiles :
 
@@ -255,9 +255,9 @@ Modèle mécaniste à l'état pseudo-stationnaire. La chaîne de calcul est cond
 | Condition | Message |
 |-----------|---------|
 | PlantX + log Kow > 5.0 | Modèle non validé pour les HAP lourds |
-| Mackay_97 + organe feuille | BCF sensible à `conc_air` — utiliser une mesure site |
+| Mackay_97 + organe feuille | BCF sensible à `conc_air` - utiliser une mesure site |
 | **PlantX** + organe fruit + exemples hors tomate/haricot | PlantX validé sur tomate/haricot uniquement |
-| BCF ≤ 0 | Erreur — vérifier les paramètres d'entrée |
+| BCF ≤ 0 | Erreur - vérifier les paramètres d'entrée |
 
 > Le warning fruit est restreint au modèle PlantX : Travis & Arms est une régression empirique générale sur parties aériennes qui ne dépend pas de la validation expérimentale tomate/haricot.
 
@@ -275,16 +275,16 @@ Appliqués séquentiellement sur les données BAPPET avant régression :
 
 | Filtre | Critère | Assouplissement (n ≤ 10) |
 |--------|---------|---------------------------|
-| F1 | Mode de culture — pleine terre uniquement (exclusion pot/intérieur/container) | — |
-| F2 | Contexte — exclusion urbain + industriel | relâché |
-| F3 | Origine de la pollution — exclusion artificielle + urbaine | relâché |
-| F4 | Extraction sol — totale/pseudo-totale (exception : As → partielle conservée) | — |
-| F5 | Organe analysé — partie consommée du végétal uniquement | — |
-| F6 | LOQ — exclusion des valeurs < LQ/< LD (sol et plante) | — |
-| F7 | Préparation — lavage requis ; « non précisé » exclu en mode strict | relâché |
-| F8 | Appariement sol-plante — Cp et Cs numériques (implicite via BCF calculable) | — |
-| F9 | Bruit de fond RECORD 1994 — exclusion si `Cs < 5×BDF` et `BCF > 10×BCF_médian_groupe` | — |
-| F10 | Grubbs α = 5 % — retrait itératif des outliers sur `ln(BCF)` | — |
+| F1 | Mode de culture - pleine terre uniquement (exclusion pot/intérieur/container) | - |
+| F2 | Contexte - exclusion urbain + industriel | relâché |
+| F3 | Origine de la pollution - exclusion artificielle + urbaine | relâché |
+| F4 | Extraction sol - totale/pseudo-totale (exception : As → partielle conservée) | - |
+| F5 | Organe analysé - partie consommée du végétal uniquement | - |
+| F6 | LOQ - exclusion des valeurs < LQ/< LD (sol et plante) | - |
+| F7 | Préparation - lavage requis ; « non précisé » exclu en mode strict | relâché |
+| F8 | Appariement sol-plante - Cp et Cs numériques (implicite via BCF calculable) | - |
+| F9 | Bruit de fond RECORD 1994 - exclusion si `Cs < 5×BDF` et `BCF > 10×BCF_médian_groupe` | - |
+| F10 | Grubbs α = 5 % - retrait itératif des outliers sur `ln(BCF)` | - |
 
 Par groupe `(ETM × catégorie INERIS)`, si le nombre de données valides après filtres stricts est **≤ 10**, F2/F3/F7 sont relâchés pour ce groupe (mode `assoupli` vs `strict`, tracé dans la colonne `mode_filtrage`).
 
@@ -322,11 +322,11 @@ Pour chaque groupe `(ETM × catégorie)`, le Br_E dépend de la présence de `co
 
 1. Filtre sur le milieu `Sol (mg/kg)` et exclusion des valeurs `< LOQ` (plante ou sol).
 2. Conversion matière fraîche → matière sèche via un % MS par défaut selon le type de plante (`_PCT_MS_DEFAULT`, pas de lookup APRIFEL contrairement au pipeline métaux).
-3. Regroupement par `(congénère × catégorie INERIS)` — mapping depuis `Type plante` vers 6 catégories atteignables en pratique (`legumes_feuilles`, `legumes_fruits`, `legumes_racines`, `tubercules`, `cereales`, `fourrage`) parmi les 9 catégories définies dans `VEGETAUX_PCB` (`data/vegetaux.py`).
+3. Regroupement par `(congénère × catégorie INERIS)` - mapping depuis `Type plante` vers 6 catégories atteignables en pratique (`legumes_feuilles`, `legumes_fruits`, `legumes_racines`, `tubercules`, `cereales`, `fourrage`) parmi les 9 catégories définies dans `VEGETAUX_PCB` (`data/vegetaux.py`).
 4. Retrait des outliers par test de Grubbs (α = 5 %) sur les résidus d'une régression OLS préliminaire, puis régression OLS finale sur les données nettoyées (minimum 4 points, `MIN_N`).
 5. `Br` (pente de la régression `Cp_MS = f(Cs)`) retenu comme valeur ponctuelle si r² > 0,5 (`Br_retenu`) ; sinon utiliser l'intervalle `[BCF_min ; BCF_max]`.
 
-`Bf` (BCF depuis l'air gazeux vers la plante) n'est **pas calculable** depuis BAPPOP — les données terrain/enceinte ne fournissent pas de concentration en air gazeux mesurée. La colonne `Bf` est toujours `None`, à compléter manuellement depuis les tableaux 1-9 du rapport INERIS si nécessaire.
+`Bf` (BCF depuis l'air gazeux vers la plante) n'est **pas calculable** depuis BAPPOP - les données terrain/enceinte ne fournissent pas de concentration en air gazeux mesurée. La colonne `Bf` est toujours `None`, à compléter manuellement depuis les tableaux 1-9 du rapport INERIS si nécessaire.
 
 > Contrairement au pipeline Métaux, le pipeline PCB ne combine pas encore le résultat avec une concentration sol du site : `data/pcb.py` ne prend pas `sol` en paramètre. Les champs `conc_sol_pcb` et `conc_air_gaz_pcb` du JSON site sont réservés pour une évolution future.
 
@@ -343,7 +343,7 @@ pip install pandas openpyxl scipy numpy
 ### Lancer le calcul
 
 ```bash
-# Site par défaut (data/sites/site_default.json) — calcule les 3 pipelines
+# Site par défaut (data/sites/site_default.json) - calcule les 3 pipelines
 python main.py
 
 # Site spécifique (data/sites/site_A.json)
@@ -357,8 +357,8 @@ python main.py --no-pcb
 | Option | Effet |
 |--------|-------|
 | `--site <nom>` | Charge `data/sites/site_<nom>.json` (défaut : `default`) |
-| `--no-metaux` | Ignore le calcul BCF métaux (BAPPET) — famille `Métal` absente des feuilles générées |
-| `--no-pcb` | Ignore le calcul BCF PCB (BAPPOP) — famille `PCB` absente des feuilles générées |
+| `--no-metaux` | Ignore le calcul BCF métaux (BAPPET) - famille `Métal` absente des feuilles générées |
+| `--no-pcb` | Ignore le calcul BCF PCB (BAPPOP) - famille `PCB` absente des feuilles générées |
 
 ### Résultat console (exemple)
 
@@ -402,7 +402,7 @@ Chaque feuille contient une ligne par polluant applicable à la catégorie, tout
 | `polluant` | Nom du polluant (organique), ETM (métal) ou congénère PCB |
 | `famille` | HAP / BTEX / COHV / Métal / PCB |
 | `categorie` | Catégorie végétale (= nom de la feuille) |
-| `Br_E` | Facteur de bioconcentration retenu — voir la logique par famille ci-dessous |
+| `Br_E` | Facteur de bioconcentration retenu - voir la logique par famille ci-dessous |
 | `unité` | mg/kg_vegsec / (mg/kg_sol) |
 | `methode` | Modèle/méthode utilisé (voir détail par famille) |
 | `note` | Avertissements ou détails de qualité de la régression (voir détail par famille) |
@@ -413,7 +413,7 @@ Chaque feuille contient une ligne par polluant applicable à la catégorie, tout
 - **Métal** : `Br_E` = valeur finale calculée par `data/metaux.py` (régression Cs-dépendante ou moyenne géométrique pondérée selon `Br_E_source`, voir [§7](#7-pipeline-métaux-bappet)) ; `methode` = `"<modele> (<Br_E_source>)"` ; `note` = taille d'échantillon, mode de filtrage (`strict`/`assoupli`) et r² de la régression simple si disponible.
 - **PCB** : `Br_E` = `Br` (pente de régression) si `Br_retenu` (r² > 0,5), sinon `BCF_median` en repli ; `methode` indique laquelle des deux voies a été utilisée ; `note` = taille d'échantillon et r² (ou intervalle `[BCF_min ; BCF_max]` si la régression n'est pas retenue).
 
-Les colonnes détaillées propres à chaque pipeline (statistiques de régression complètes pour les métaux, `Bf`/`intercept_air_contrib` pour les PCB, `nb_cycles`/`organe` pour les organiques…) ne sont **pas** reportées dans ce format condensé — elles restent disponibles en appelant directement `compute_bcf_metaux()` / `compute_bcf_pcb()` / `compute_bre()` en Python si une analyse plus fine est nécessaire.
+Les colonnes détaillées propres à chaque pipeline (statistiques de régression complètes pour les métaux, `Bf`/`intercept_air_contrib` pour les PCB, `nb_cycles`/`organe` pour les organiques…) ne sont **pas** reportées dans ce format condensé - elles restent disponibles en appelant directement `compute_bcf_metaux()` / `compute_bcf_pcb()` / `compute_bre()` en Python si une analyse plus fine est nécessaire.
 
 ---
 
@@ -436,19 +436,19 @@ python main.py --site <nom>
 
 ## 12. Références
 
-- **Briggs et al. (1982)** — Pestic Sci 13:495–504  
+- **Briggs et al. (1982)** - Pestic Sci 13:495–504  
   Modèle sol-racine (orge hydroponique) ; formule TSCF retenue dans PlantX et Mackay_97.
 
-- **Travis & Arms (1988)** — Environ Sci Technol 22:271–274  
+- **Travis & Arms (1988)** - Environ Sci Technol 22:271–274  
   Régression empirique parties aériennes ; domaine de calibration source 1 < log Kow < 9, borne opérationnelle retenue à 8.0.
 
-- **Hung & Mackay (1997)** — Chemosphere 35:959–977  
+- **Hung & Mackay (1997)** - Chemosphere 35:959–977  
   Modèle fugacité 3 compartiments ; appliqué aux feuilles pour les composés volatils (H > 0.1).
 
-- **Trapp & Matthies (1995)** — Environ Sci Technol 29:2333–2338  
+- **Trapp & Matthies (1995)** - Environ Sci Technol 29:2333–2338  
   Modèle PlantX bilan de masse pseudo-stationnaire ; racines, feuilles et fruits.
 
-- **McKone & Maddalena (2007)** — LBNL-60273  
+- **McKone & Maddalena (2007)** - LBNL-60273  
   Comparaison des modèles TSCF (Briggs, Hsu, Trapp) et domaines de validité de Travis & Arms ; justification des bornes opérationnelles retenues.
 
 - **INERIS DRC-05-57281 (2005)**  
@@ -458,7 +458,7 @@ python main.py --site <nom>
   Méthodologie de calcul du facteur de transfert sol-plante des PCB (projet TROPHé) ; filtres qualité et régression appliqués dans `data/pcb.py`.
 
 - **RECORD 1994**  
-  Fond géochimique naturel français en éléments traces métalliques ; valeurs utilisées pour le filtre F9 (bruit de fond) dans `data/metaux.py` — à vérifier contre le document source (signalé comme tel dans le code).
+  Fond géochimique naturel français en éléments traces métalliques ; valeurs utilisées pour le filtre F9 (bruit de fond) dans `data/metaux.py` - à vérifier contre le document source (signalé comme tel dans le code).
 
 - **APRIFEL**  
   Base de données % matière sèche par espèce végétale ; utilisée pour la conversion matière fraîche → matière sèche dans le pipeline Métaux (`data/aprifel/aprifel_pct_ms.csv`).

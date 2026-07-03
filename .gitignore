@@ -1,0 +1,12 @@
+# IDE
+.idea/
+
+# Python
+__pycache__/
+*.pyc
+
+# Sorties générées par main.py / data/metaux.py / data/pcb.py
+Br_E_*.xlsx
+~$*.xlsx
+data/bcf_metaux_results.csv
+data/bcf_pcb_results.csv
