@@ -59,6 +59,74 @@ POLLUANTS = {
         "H":        0.725,
     },
 
+    #COHV Completés (à valider) -------------------
+    "trichloroéthylène": {
+        "famille": "COHV",
+        "log_kow": 2.71, "log_koc": 2.22, "MW": 131.38,
+        "Pvap": 9.20e3, "H": 0.422,
+        "source": "EPA SSL Tech. Background Doc. Table 36/39 (1996) / PubChem CID 6575",
+    },
+    "cis-1,2-dichloroéthylène": {
+        "famille": "COHV",
+        "log_kow": 1.86, "log_koc": 1.55, "MW": 96.94,
+        "Pvap": 2.67e4, "H": 0.167,
+        "source": "EPA SSL Tech. Background Doc. Table 36/39 (1996) / PubChem CID 643833",
+    },
+    "trans-1,2-dichloroéthylène": {
+        "famille": "COHV",
+        "log_kow": 2.07, "log_koc": 1.72, "MW": 96.94,
+        "Pvap": 4.41e4, "H": 0.385,
+        "source": "EPA SSL Tech. Background Doc. Table 36/39 (1996) / PubChem CID 638186",
+    },
+    "1,1-dichloroéthylène": {
+        "famille": "COHV",
+        "log_kow": 2.13, "log_koc": 1.77, "MW": 96.94,
+        "Pvap": 8.00e4, "H": 1.07,
+        "source": "EPA SSL Tech. Background Doc. Table 36/39 (1996) / PubChem CID 6366",
+    },
+    "chlorure de vinyle": {
+        "famille": "COHV",
+        "log_kow": 1.50, "log_koc": 1.27, "MW": 62.50,
+        "Pvap": 3.97e5, "H": 1.11,
+        "source": "EPA SSL Tech. Background Doc. Table 36/39 (1996) / PubChem CID 6338",
+    },
+    "1,1,2-trichloroéthane": {
+        "famille": "COHV",
+        "log_kow": 2.05, "log_koc": 1.70, "MW": 133.40,
+        "Pvap": 3.07e3, "H": 0.0374,
+        "source": "EPA SSL Tech. Background Doc. Table 36/39 (1996) / PubChem CID 6574",
+    },
+    "1,1,1-trichloroéthane": {
+        "famille": "COHV",
+        "log_kow": 2.48, "log_koc": 2.04, "MW": 133.40,
+        "Pvap": 1.65e4, "H": 0.705,
+        "source": "EPA SSL Tech. Background Doc. Table 36/39 (1996) / PubChem CID 6278",
+    },
+    "1,2-dichloroéthane": {
+        "famille": "COHV",
+        "log_kow": 1.47, "log_koc": 1.24, "MW": 98.96,
+        "Pvap": 1.05e4, "H": 0.0401,
+        "source": "EPA SSL Tech. Background Doc. Table 36/39 (1996) / PubChem CID 11",
+    },
+    "1,1-dichloroéthane": {
+        "famille": "COHV",
+        "log_kow": 1.79, "log_koc": 1.50, "MW": 98.96,
+        "Pvap": 3.03e4, "H": 0.230,
+        "source": "EPA SSL Tech. Background Doc. Table 36/39 (1996) / PubChem CID 6365",
+    },
+    "tétrachlorométhane": {
+        "famille": "COHV",
+        "log_kow": 2.73, "log_koc": 2.24, "MW": 153.81,
+        "Pvap": 1.53e4, "H": 1.25,
+        "source": "EPA SSL Tech. Background Doc. Table 36/39 (1996) / PubChem CID 5943",
+    },
+    "dichlorométhane": {
+        "famille": "COHV",
+        "log_kow": 1.25, "log_koc": 1.07, "MW": 84.93,
+        "Pvap": 5.80e4, "H": 0.0898,
+        "source": "EPA SSL Tech. Background Doc. Table 36/39 (1996) / PubChem CID 6344",
+    },
+
     #HAP Completés (à valider) -------------------
     "acénaphtylène": {
         "famille": "HAP", "nb_cycles": 3,

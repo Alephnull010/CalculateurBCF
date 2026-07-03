@@ -33,7 +33,18 @@
         "m-xylène":                 7e-9,
         "p-xylène":                 7e-9,
         "chloroforme":              7e-9,
-        "tétrachloroéthylène":      7e-9
+        "tétrachloroéthylène":      7e-9,
+        "trichloroéthylène":            7e-9,
+        "cis-1,2-dichloroéthylène":      7e-9,
+        "trans-1,2-dichloroéthylène":    7e-9,
+        "1,1-dichloroéthylène":          7e-9,
+        "chlorure de vinyle":            7e-9,
+        "1,1,2-trichloroéthane":         7e-9,
+        "1,1,1-trichloroéthane":         7e-9,
+        "1,2-dichloroéthane":            7e-9,
+        "1,1-dichloroéthane":            7e-9,
+        "tétrachlorométhane":            7e-9,
+        "dichlorométhane":               7e-9
     },
 
     "_conc_sol_metaux_notice": "Optionnel — concentrations sol mesurées sur site (mg/kg MS). Si renseigné, affine le Br_E métaux via la régression BAPPET (Br_E = exp(A + B*ln(Cs))) quand la régression est retenue et Cs dans le domaine de validité.",
