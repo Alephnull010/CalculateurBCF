@@ -28,7 +28,7 @@ Le script produit le facteur de bioconcentration sol-plante pour **trois famille
 
 | Pipeline | Polluants | Méthode |
 |----------|-----------|---------|
-| **Organiques** | HAP, BTEX, COHV (35 substances) | Modèles mécanistes/empiriques (Briggs, Travis & Arms, Mackay_97, PlantX) sélectionnés selon organe/H/log Kow |
+| **Organiques** | HAP, BTEX, COHV, HCT (37 substances) | Modèles mécanistes/empiriques (Briggs, Travis & Arms, Mackay_97, PlantX) sélectionnés selon organe/H/log Kow |
 | **Métaux** | 15 ETM (As, Cd, Co, Cr, Cu, Hg, Mn, Mo, Ni, Pb, Sb, Se, Tl, V, Zn) | Régression statistique sur données terrain BAPPET, filtres qualité INERIS |
 | **PCB** | 7 congénères indicateurs (PCB 28/52/101/118/138/153/180) | Régression OLS sur données terrain BAPPOP (projet TROPHé) |
 
@@ -81,15 +81,26 @@ CalculateurBCF/
 
 ### Polluants (`data/polluants.py`)
 
-35 substances réparties en trois familles. **8 substances** (4 HAP, 2 BTEX, 2 COHV) sont issues du Tableau 2 INERIS DRC-05-57281 (validées expérimentalement sur tomate, haricot, laitue, carotte) ; les **27 substances restantes** complètent la couverture HAP/BTEX/COHV depuis d'autres sources (IARC92, EPI Suite, EPA SSL — voir le champ `source` dans `data/polluants.py`) et sont marquées « à valider » :
+37 substances réparties en quatre familles. **8 substances** (4 HAP, 2 BTEX, 2 COHV) sont issues du Tableau 2 INERIS DRC-05-57281 (validées expérimentalement sur tomate, haricot, laitue, carotte) ; les **29 substances restantes** complètent la couverture HAP/BTEX/COHV/HCT depuis d'autres sources (IARC92, EPI Suite, EPA SSL, TPHCWG — voir le champ `source` dans `data/polluants.py`) et sont marquées « à valider » :
 
 | Famille | Substances | Issues du Tableau 2 INERIS |
 |---------|-----------|------------------------------|
 | HAP (16) | naphtalène, acénaphtylène, acénaphtène, fluorène, phénanthrène, anthracène, fluoranthène, pyrène, benzo(a)anthracène, chrysène, benzo(b)fluoranthène, benzo(k)fluoranthène, benzo(a)pyrène, indéno(1,2,3-cd)pyrène, dibenzo(a,h)anthracène, benzo(g,h,i)pérylène | naphtalène, anthracène, phénanthrène, benzo(a)pyrène (4/16) |
 | BTEX (6) | benzène, toluène, éthylbenzène, o/m/p-xylène | benzène, toluène (2/6) |
 | COHV (13) | chloroforme, tétrachloroéthylène, trichloroéthylène, cis-1,2-dichloroéthylène, trans-1,2-dichloroéthylène, 1,1-dichloroéthylène, chlorure de vinyle, 1,1,2-trichloroéthane, 1,1,1-trichloroéthane, 1,2-dichloroéthane, 1,1-dichloroéthane, tétrachlorométhane, dichlorométhane | chloroforme, tétrachloroéthylène (2/13) |
+| HCT (2) | fraction c10-c12, fraction c12-c16 | aucune (nouvelle famille, hors Tableau 2 INERIS — voir note ci-dessous) |
 
 Chaque polluant est défini par : `log_kow`, `log_koc`, `MW` (g/mol), `Pvap` (Pa), `H` (constante de Henry adimensionnelle).
+
+#### HCT — hydrocarbures totaux (fractions C10-C40)
+
+Les hydrocarbures pétroliers sont mesurés en laboratoire (norme ISO 16703) sous forme de fractions par bande de carbone (`Fraction C10-C12`, `C12-C16`, `C16-C20`, ... jusqu'à `C36-C40`), pas comme une substance unique — un « HC Totaux » global n'a pas de sens physico-chimique pour un calcul par organe (log Kow/H « moyen » sur un agrégat de centaines de composés très hétérogènes).
+
+**Seules 2 fractions sont modélisées : `fraction c10-c12` et `fraction c12-c16`.** Leurs paramètres physico-chimiques sont un mix pondéré 70 % aliphatique / 30 % aromatique (convention par défaut faute de spéciation labo, guide wallon des sols pollués), dérivés des tables TPHCWG (1997) via Washington State Dept. of Ecology (MTCA Table 747-4 / CLARC Table 4, rev. 2022) — voir le champ `source` de chaque entrée dans `data/polluants.py` pour le détail des calculs (ordre des opérations important : dérivation par composante aliphatique/aromatique puis mix, pas l'inverse).
+
+**Les fractions plus lourdes (C16-C20 à C36-C40) sont volontairement exclues**, pas seulement par manque de données : leur log Kow extrapolé avoisine 10, très au-delà du domaine calibré des 4 modèles du pipeline (Briggs/Travis_Arms/Mackay_97/PlantX, calés empiriquement sur log Kow ≲ 8). Cette exclusion est cohérente avec le comportement physico-chimique connu des composés très hydrophobes : la formule TSCF déjà utilisée par le pipeline (`TSCF = 0.784 × exp(-(log Kow - 1.78)² / 2.44)`, Briggs 1982, voir §5 PlantX/Mackay_97) est une courbe en cloche qui décroît fortement au-delà de log Kow ≈ 3-4 — le transfert xylémique devient quasi nul pour ces composés, qui sont majoritairement retenus par la matière organique du sol plutôt que transférés vers la plante. Ce n'est donc pas qu'une limite de calcul, mais un phénomène physique réel qui justifie l'absence de modélisation.
+
+> **Comportement si des clés `conc_air` supplémentaires sont ajoutées** (ex. un futur bulletin labo réel avec les 8 fractions, dont les 6 exclues) : `data/sol.py::validate_sol()` ne vérifie que les clés *manquantes* par rapport à `POLLUANTS` — une clé de `conc_air` sans correspondance dans `POLLUANTS` (ex. `"fraction c16-c20"`) est **silencieusement ignorée**, sans erreur ni avertissement. Elle n'est simplement jamais lue nulle part dans le pipeline.
 
 ### Végétaux (`data/vegetaux.py`)
 
@@ -369,13 +380,11 @@ python main.py --no-pcb
 ...
 ----------Calcul BCF PCB (BAPPOP)...
 ...
-----------Export : Br_E_default.xlsx  (6 onglet(s))
-  légumes_feuilles (56 lignes)
-  légumes_fruits (56 lignes)
-  légumes_racines (53 lignes)
-  tubercules (54 lignes)
-  fruits (35 lignes)
-  céréales (1 lignes)
+----------Export : Br_E_default.xlsx  (4 onglet(s))
+  légumes_feuilles (58 lignes)
+  légumes_fruits (58 lignes)
+  légumes_racines (55 lignes)
+  tubercules (56 lignes)
 ```
 
 ---
@@ -414,7 +423,7 @@ Créer `data/sites/site_<nom>.json` en copiant `site_default.json` et en renseig
 
 1. `pH` et `matiere_organique` propres au site ;
 2. optionnellement `pct_argile`, `pct_limon`, `temperature` pour affiner les estimations pédologiques ;
-3. `conc_air` pour chacun des 35 polluants organiques (utiliser le seuil de quantification si non mesuré) ;
+3. `conc_air` pour chacun des 37 polluants organiques (utiliser le seuil de quantification si non mesuré) ;
 4. optionnellement `conc_sol_metaux` pour affiner le `Br_E` métaux par régression site-dépendante (sinon moyenne géométrique utilisée par défaut).
 
 Puis lancer :

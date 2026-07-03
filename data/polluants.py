@@ -127,6 +127,37 @@ POLLUANTS = {
         "source": "EPA SSL Tech. Background Doc. Table 36/39 (1996) / PubChem CID 6344",
     },
 
+    #HCT (hydrocarbures totaux, fractions fiables uniquement) Complétés (à valider) ---
+    # Fractions C16-C40 volontairement exclues : log_kow extrapolé ~10, hors du domaine
+    # calibré des modèles (voir README §5) — cohérent avec la mobilité xylémique quasi
+    # nulle des composés très hydrophobes (TSCF en cloche, décroissante au-delà de
+    # log Kow ~3-4), pas seulement une limite de calcul.
+    "fraction c10-c12": {
+        "famille": "HCT",
+        "log_kow": 5.31, "log_koc": 5.22, "MW": 151.0,
+        "Pvap": 64.2, "H": 84.0,
+        "source": "TPHCWG (1997) tranche C10-C12. Mix 70% aliphatique/30% aromatique "
+                  "(mix par défaut guide wallon des sols pollués, pas de spéciation labo). "
+                  "Données aliph./arom. (MW, H, solubilité S, Koc) via WA Dept. of Ecology "
+                  "MTCA Table 747-4 / CLARC Table 4 (rev. août 2022). Ordre de calcul : "
+                  "1) log_kow et Pvap dérivés SÉPARÉMENT pour la composante aliphatique et "
+                  "la composante aromatique (log_kow via EPA SSL Tech. Background Doc. éq.70, "
+                  "log Koc=0.983 log Kow+0.00028 ; Pvap = H·R·T·S/MW appliqué à chaque "
+                  "composante) ; 2) les deux résultats Pvap (et Kow linéaire, puis log10) sont "
+                  "ensuite mixés 70/30. Ne PAS appliquer la formule Pvap aux valeurs H/S/MW "
+                  "déjà mixées — l'ordre des opérations n'est pas commutatif ici (écart "
+                  "constaté d'un facteur ~150 si on le fait dans le mauvais ordre, car H et S "
+                  "varient sur plusieurs ordres de grandeur entre aliphatique et aromatique).",
+    },
+    "fraction c12-c16": {
+        "famille": "HCT",
+        "log_kow": 6.69, "log_koc": 6.58, "MW": 185.0,
+        "Pvap": 4.95, "H": 364,
+        "source": "TPHCWG (1997) tranche C12-C16, mix 70/30 aliph./arom. — mêmes sources et "
+                  "même ordre de calcul (dérivation par composante puis mix) que "
+                  "'fraction c10-c12', voir note complète ci-dessus.",
+    },
+
     #HAP Completés (à valider) -------------------
     "acénaphtylène": {
         "famille": "HAP", "nb_cycles": 3,
