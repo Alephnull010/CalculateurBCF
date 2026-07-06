@@ -11,9 +11,10 @@ SOL_REQUIRED_KEYS = [
 
 # --- Clés optionnelles avec leurs valeurs par défaut ---
 SOL_OPTIONAL_KEYS = {
-    "temperature":  17.5,   # °C — Météo-France si non fourni
-    "pct_argile":   None,   # % — si None → Rawls utilisé pour densité
-    "pct_limon":    None,   # % — si None → Rawls utilisé pour densité
+    "temperature":             17.5,  # °C — Météo-France si non fourni
+    "pct_argile":              None,  # % — si None → Rawls utilisé pour densité
+    "pct_limon":               None,  # % — si None → Rawls utilisé pour densité
+    "carbone_organique_mgkg":  None,  # mg/kg — COT labo ; si fourni, remplace l'estimation MO/1.72
 }
 
 
@@ -137,6 +138,12 @@ def load_sol(site_name: str = "default") -> dict:
     Paramètres optionnels (estimés automatiquement si absents) :
         pct_argile, pct_limon, temperature
 
+    Paramètres optionnels de mesure directe (remplacent une estimation) :
+        carbone_organique_mgkg — COT mesuré en laboratoire (mg/kg). Si fourni,
+        remplace l'estimation carbone_organique = matiere_organique / 1.72
+        (facteur de Van Bemmelen, une approximation à éviter quand le COT est
+        mesuré directement).
+
     Paramètres calculés automatiquement :
         carbone_organique, densite, fraction_eau, fraction_air
 
@@ -174,14 +181,21 @@ def load_sol(site_name: str = "default") -> dict:
     for key, default in SOL_OPTIONAL_KEYS.items():
         if key not in sol:
             sol[key] = default
-            print(f"  ℹ️  {key} non fourni → valeur par défaut : {default}")
+            print(f"  [info] {key} non fourni -> valeur par défaut : {default}")
 
     # --- Calculs automatiques ---
     MO         = sol["matiere_organique"]
     pct_argile = sol.get("pct_argile")
     pct_limon  = sol.get("pct_limon")
+    cot_mgkg   = sol.get("carbone_organique_mgkg")
 
-    sol["carbone_organique"] = round(MO / 1.72, 4)
+    if cot_mgkg is not None:
+        sol["carbone_organique"]      = round(cot_mgkg / 1e6, 4)
+        sol["carbone_organique_source"] = "mesure_labo"
+    else:
+        sol["carbone_organique"]      = round(MO / 1.72, 4)
+        sol["carbone_organique_source"] = "estime_MO/1.72"
+
     sol["densite"]           = estimate_densite(MO, pct_argile, pct_limon)
     sol["fraction_eau"]      = estimate_fraction_eau(MO, pct_argile)
     sol["fraction_air"]      = estimate_fraction_air(
@@ -196,7 +210,7 @@ def load_sol(site_name: str = "default") -> dict:
     print(f"\n---------- Sol chargé : site_{site_name}")
     print(f"   pH               = {sol['pH']}")
     print(f"   MO               = {sol['matiere_organique']*100:.1f} %")
-    print(f"   Corg             = {sol['carbone_organique']:.4f}")
+    print(f"   Corg             = {sol['carbone_organique']:.4f}  ({sol['carbone_organique_source']})")
     print(f"   Densité estimée  = {sol['densite']} kg/dm³")
     print(f"   Fraction eau     = {sol['fraction_eau']}")
     print(f"   Fraction air     = {sol['fraction_air']}")

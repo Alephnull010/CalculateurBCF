@@ -1,4 +1,5 @@
 import argparse
+import sys
 import pandas as pd
 from data.polluants  import POLLUANTS
 from data.vegetaux   import VEGETAUX
@@ -16,20 +17,17 @@ _COLS_METAUX = [
     "regression_retenue", "best_distrib",
 ]
 
-# Colonnes à conserver dans l'onglet PCB
+# Colonnes à conserver dans l'onglet PCB (table officielle INERIS)
 _COLS_PCB = [
-    "congener", "congenere_key", "categorie",
-    "n", "n_outliers",
-    "Br", "Br_retenu", "r2", "p_val",
-    "BCF_min", "BCF_max", "BCF_median", "BCF_mean",
-    "intercept_air_contrib",
-    "Bf", "Bf_note",
+    "substance", "sigle", "nom", "famille", "pcb_numero", "categorie",
+    "Br_min", "Br_max", "Br_ponctuel",
+    "Bf_min", "Bf_max", "Bf_ponctuel",
 ]
 
 # Ordre d'affichage des feuilles par catégorie végétale
 CATEGORIE_ORDER = [
     "légumes_feuilles", "légumes_fruits", "légumes_racines",
-    "tubercules", "fourrage",
+    "tubercules",
 ]
 
 # Mapping des catégories métaux (BAPPET, tirets) vers la taxonomie unifiée
@@ -77,23 +75,45 @@ def _rows_metaux(df_met: pd.DataFrame) -> pd.DataFrame:
     return out[_UNIFIED_COLS]
 
 
+def _pick_pcb_value(row, min_col, max_col, point_col):
+    """Valeur ponctuelle si publiée, sinon milieu de l'intervalle, sinon la seule borne connue."""
+    if pd.notna(row[point_col]):
+        return row[point_col]
+    mn, mx = row[min_col], row[max_col]
+    if pd.notna(mn) and pd.notna(mx):
+        return (mn + mx) / 2
+    return mx if pd.notna(mx) else (mn if pd.notna(mn) else None)
+
+
 def _rows_pcb(df_pcb: pd.DataFrame) -> pd.DataFrame:
     out = df_pcb.copy()
     out["categorie"] = out["categorie"].map(_PCB_CAT_MAP)
-    out["famille"]   = "PCB"
-    out["polluant"]  = out["congener"]
+    out["polluant"]  = out["sigle"]
     out["unité"]     = "mg/kg_vegsec / (mg/kg_sol)"
-    out["Br_E"]      = out.apply(
-        lambda r: r["Br"] if r["Br_retenu"] else r["BCF_median"], axis=1
+    out["Br_E"] = out.apply(
+        lambda r: _pick_pcb_value(r, "Br_min", "Br_max", "Br_ponctuel"), axis=1
     )
-    out["methode"] = out["Br_retenu"].apply(
-        lambda ok: "BAPPOP_OLS (régression)" if ok else "BAPPOP (médiane, r²≤0.5)"
-    )
-    out["note"] = out.apply(
-        lambda r: f"n={r['n']}, r²={r['r2']:.2f}" if pd.notna(r["r2"])
-        else f"n={r['n']}, intervalle [{r['BCF_min']:.3g};{r['BCF_max']:.3g}]",
-        axis=1,
-    )
+    out = out[out["Br_E"].notna()].copy()
+
+    def _methode(r):
+        if pd.notna(r["Br_ponctuel"]):
+            return "INERIS DRC-16-159776 (valeur ponctuelle)"
+        if pd.notna(r["Br_min"]) and pd.notna(r["Br_max"]):
+            return "INERIS DRC-16-159776 (milieu d'intervalle)"
+        return "INERIS DRC-16-159776 (borne unique)"
+
+    out["methode"] = out.apply(_methode, axis=1)
+
+    def _note(r):
+        parts = []
+        if pd.notna(r["Br_min"]) and pd.notna(r["Br_max"]):
+            parts.append(f"intervalle Br [{r['Br_min']:.3g};{r['Br_max']:.3g}]")
+        bf = _pick_pcb_value(r, "Bf_min", "Bf_max", "Bf_ponctuel")
+        if bf is not None:
+            parts.append(f"Bf air-plante≈{bf:.3g} m3/kg frais")
+        return "; ".join(parts)
+
+    out["note"] = out.apply(_note, axis=1)
     return out[_UNIFIED_COLS]
 
 
@@ -121,6 +141,7 @@ def build_sheets_par_vegetal(df_org: pd.DataFrame,
 
 
 def main():
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     parser = argparse.ArgumentParser(description="Calcul Br_E pour MODUL'ERS")
     parser.add_argument(
         "--site", type=str, default="default",
@@ -157,7 +178,7 @@ def main():
     # ── Calcul PCB ────────────────────────────────────────────────────────────
     df_pcb = None
     if not args.no_pcb:
-        print("\n----------Calcul BCF PCB (BAPPOP)...")
+        print("\n----------Calcul BCF PCB/PCDD-F (table officielle INERIS)...")
         df_pcb = compute_bcf_pcb()
         cols = [c for c in _COLS_PCB if c in df_pcb.columns]
         df_pcb = df_pcb[cols]

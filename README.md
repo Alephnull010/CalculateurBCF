@@ -14,7 +14,7 @@ Sortie : `mg/kg_vegsec / (mg/kg_sol)`, exportée dans un fichier Excel par site.
 5. [Modèles de calcul (organiques)](#5-modèles-de-calcul-organiques)
 6. [Système d'avertissements (organiques)](#6-système-davertissements-organiques)
 7. [Pipeline Métaux (BAPPET)](#7-pipeline-métaux-bappet)
-8. [Pipeline PCB (BAPPOP)](#8-pipeline-pcb-bappop)
+8. [Pipeline PCB/PCDD-F (table officielle INERIS)](#8-pipeline-pcbpcddf-table-officielle-ineris)
 9. [Utilisation](#9-utilisation)
 10. [Format de sortie](#10-format-de-sortie)
 11. [Ajouter un site](#11-ajouter-un-site)
@@ -28,9 +28,9 @@ Le script produit le facteur de bioconcentration sol-plante pour **trois famille
 
 | Pipeline | Polluants | Méthode |
 |----------|-----------|---------|
-| **Organiques** | HAP, BTEX, COHV, HCT (37 substances) | Modèles mécanistes/empiriques (Briggs, Travis & Arms, Mackay_97, PlantX) sélectionnés selon organe/H/log Kow |
+| **Organiques** | HAP, BTEX, COHV, HCT (36 substances) | Modèles mécanistes/empiriques (Briggs, Travis & Arms, Mackay_97, PlantX) sélectionnés selon organe/H/log Kow |
 | **Métaux** | 15 ETM (As, Cd, Co, Cr, Cu, Hg, Mn, Mo, Ni, Pb, Sb, Se, Tl, V, Zn) | Régression statistique sur données terrain BAPPET, filtres qualité INERIS |
-| **PCB** | 7 congénères indicateurs (PCB 28/52/101/118/138/153/180) | Régression OLS sur données terrain BAPPOP (projet TROPHé) |
+| **PCB/PCDD-F** | 34 substances (7 dioxines, 10 furannes, 17 PCB) | Table Br/Bf officiellement publiée par INERIS (projet TROPHé), lue directement - pas de régression recalculée |
 
 Pour le pipeline **organiques**, pour chaque combinaison `(polluant × végétal)`, le script :
 
@@ -39,7 +39,7 @@ Pour le pipeline **organiques**, pour chaque combinaison `(polluant × végétal
 3. calcule le Br_E ;
 4. génère des avertissements si le polluant sort du domaine de validité du modèle.
 
-Les pipelines **Métaux** et **PCB** ne partent pas de propriétés physico-chimiques mais recalculent un facteur de bioconcentration par régression statistique sur des bases de données terrain (BAPPET, BAPPOP), rechargées et traitées à chaque exécution. `main.py::build_sheets_par_vegetal()` fusionne ensuite les 3 résultats dans un schéma de colonnes commun et les répartit par catégorie végétale (voir [§10](#10-format-de-sortie)).
+Le pipeline **Métaux** ne part pas de propriétés physico-chimiques mais recalcule un facteur de bioconcentration par régression statistique sur des données terrain BAPPET, rechargées et traitées à chaque exécution. Le pipeline **PCB/PCDD-F** lit directement une table de valeurs Br/Bf déjà publiées par INERIS (pas de recalcul). `main.py::build_sheets_par_vegetal()` fusionne ensuite les 3 résultats dans un schéma de colonnes commun et les répartit par catégorie végétale (voir [§10](#10-format-de-sortie)).
 
 ---
 
@@ -66,9 +66,10 @@ CalculateurBCF/
     ├── vegetaux.py          # Paramètres des 5 catégories végétales + 9 catégories PCB (VEGETAUX_PCB)
     ├── sol.py               # Chargement, estimation et validation des paramètres sol
     ├── metaux.py            # Pipeline BCF métaux (BAPPET) - filtres INERIS, régressions OLS, distribution
-    ├── pcb.py                # Pipeline BCF PCB (BAPPOP) - régression OLS par congénère × catégorie
+    ├── pcb.py                # Pipeline BCF PCB/PCDD-F - table officielle INERIS (+ régression BAPPOP legacy)
+    ├── pcb_ineris_lookup.py # Tableaux 1-9 INERIS-DRC-16-159776-09593A transcrits (Br/Bf, 34 substances)
     ├── bappet/bappet.csv     # Données terrain métaux (source du pipeline Métaux)
-    ├── bappop/bappop.csv     # Données terrain PCB, projet TROPHé (source du pipeline PCB)
+    ├── bappop/bappop.csv     # Données terrain PCB, projet TROPHé (source de compute_bcf_pcb_regression_bappop, legacy)
     ├── aprifel/aprifel_pct_ms.csv  # % matière sèche par espèce (conversion MF→MS, pipeline Métaux)
     └── sites/
         ├── site_default.json  # Site de référence (exemple complet)
@@ -81,12 +82,12 @@ CalculateurBCF/
 
 ### Polluants (`data/polluants.py`)
 
-37 substances réparties en quatre familles. **8 substances** (4 HAP, 2 BTEX, 2 COHV) sont issues du Tableau 2 INERIS DRC-05-57281 (validées expérimentalement sur tomate, haricot, laitue, carotte) ; les **29 substances restantes** complètent la couverture HAP/BTEX/COHV/HCT depuis d'autres sources (IARC92, EPI Suite, EPA SSL, TPHCWG - voir le champ `source` dans `data/polluants.py`) et sont marquées « à valider » :
+36 substances réparties en quatre familles. **8 substances** (4 HAP, 2 BTEX, 2 COHV) sont issues du Tableau 2 INERIS DRC-05-57281 (validées expérimentalement sur tomate, haricot, laitue, carotte) ; les **28 substances restantes** complètent la couverture HAP/BTEX/COHV/HCT depuis d'autres sources (IARC92, EPI Suite, EPA SSL, TPHCWG - voir le champ `source` dans `data/polluants.py`) et sont marquées « à valider » :
 
 | Famille | Substances | Issues du Tableau 2 INERIS |
 |---------|-----------|------------------------------|
 | HAP (16) | naphtalène, acénaphtylène, acénaphtène, fluorène, phénanthrène, anthracène, fluoranthène, pyrène, benzo(a)anthracène, chrysène, benzo(b)fluoranthène, benzo(k)fluoranthène, benzo(a)pyrène, indéno(1,2,3-cd)pyrène, dibenzo(a,h)anthracène, benzo(g,h,i)pérylène | naphtalène, anthracène, phénanthrène, benzo(a)pyrène (4/16) |
-| BTEX (6) | benzène, toluène, éthylbenzène, o/m/p-xylène | benzène, toluène (2/6) |
+| BTEX (5) | benzène, toluène, éthylbenzène, o-xylène, m,p-xylène | benzène, toluène (2/5) |
 | COHV (13) | chloroforme, tétrachloroéthylène, trichloroéthylène, cis-1,2-dichloroéthylène, trans-1,2-dichloroéthylène, 1,1-dichloroéthylène, chlorure de vinyle, 1,1,2-trichloroéthane, 1,1,1-trichloroéthane, 1,2-dichloroéthane, 1,1-dichloroéthane, tétrachlorométhane, dichlorométhane | chloroforme, tétrachloroéthylène (2/13) |
 | HCT (2) | fraction c10-c12, fraction c12-c16 | aucune (nouvelle famille, hors Tableau 2 INERIS - voir note ci-dessous) |
 
@@ -137,19 +138,20 @@ Paramètres utilisés par les modèles : `lipide`, `densite`, `evapotranspiratio
 |-----|-------------|-----------------|
 | `pct_argile` | % argile | `None` → Rawls (1983) |
 | `pct_limon` | % limon | `None` → Rawls (1983) |
-| `temperature` | °C | `17.5` (Météo-France) |
+| `temperature` | °C | `17.5` (Météo-France) - non fourni dans les sites d'exemple, calculé par défaut |
+| `carbone_organique_mgkg` | COT mesuré en labo (mg/kg) | `None` → estimation `MO / 1.72` (facteur de Van Bemmelen). Si fourni, remplace directement cette estimation - à privilégier quand une mesure labo est disponible plutôt que l'approximation depuis la matière organique |
 
-**Paramètres optionnels spécifiques aux pipelines Métaux/PCB** :
+**Paramètres optionnels spécifiques au pipeline Métaux** :
 
 | Clé | Description | Effet si renseigné |
 |-----|-------------|---------------------|
 | `conc_sol_metaux` | `{ETM: Cs mg/kg_MS}` | Br_E métaux calculé par régression BAPPET (`exp(A + B·ln(Cs))`) si Cs dans le domaine de validité et régression retenue ; sinon fallback moyenne géométrique pondérée (voir [§7](#7-pipeline-métaux-bappet)) |
-| `conc_sol_pcb` | `{PCB_xx: Cs mg/kg_MS}` | Présent dans `site_default.json` mais **non consommé** par `data/pcb.py` à ce jour - le pipeline PCB retourne un Br générique par congénère × catégorie, pas de Br_E site-dépendant |
-| `conc_air_gaz_pcb` | `{PCB_xx: Cair µg/m³}` | Idem - champ réservé, pas encore utilisé (le calcul de Bf, BCF air→plante, est documenté comme non calculable depuis BAPPOP) |
+
+> `conc_sol_pcb`/`conc_air_gaz_pcb` ont été retirés des JSON de site (champs réservés jamais consommés par `data/pcb.py` - le pipeline PCB/PCDD-F ne prend aucune entrée du site depuis le passage à la table officielle INERIS, voir [§8](#8-pipeline-pcbpcddf-table-officielle-ineris)).
 
 **Paramètres calculés automatiquement par `load_sol()` :**
 
-- `carbone_organique` = MO / 1.72
+- `carbone_organique` = `carbone_organique_mgkg / 1e6` si fourni, sinon `MO / 1.72` (voir `carbone_organique_source` : `"mesure_labo"` ou `"estime_MO/1.72"`)
 - `densite` - Manrique & Jones (1991) si argile+limon disponibles, sinon Rawls (1983)
 - `fraction_eau` - Saxton & Rawls (2006) si argile disponible, sinon 0.30 (INERIS)
 - `fraction_air` = porosité totale − fraction_eau
@@ -316,21 +318,24 @@ Pour chaque groupe `(ETM × catégorie)`, le Br_E dépend de la présence de `co
 
 ---
 
-## 8. Pipeline PCB (BAPPOP)
+## 8. Pipeline PCB/PCDD/F (table officielle INERIS)
 
-`data/pcb.py` calcule un facteur de transfert Br par régression OLS pour 7 congénères indicateurs (PCB 28, 52, 101, 118, 138, 153, 180), à partir des données terrain du projet TROPHé (`data/bappop/bappop.csv`), selon la méthodologie du rapport INERIS-DRC-16-159776-09593A.
+`data/pcb.py::compute_bcf_pcb()` (= `compute_bcf_pcb_ineris()`) lit directement les **Tableaux 1 à 9** du rapport INERIS-DRC-16-159776-09593A (26/06/2017, "Application dans le logiciel MODUL'ERS"), transcrits dans `data/pcb_ineris_lookup.py`. Ce sont des valeurs **déjà calculées et publiées par INERIS** à partir du projet TROPHé - pas une régression recalculée à partir de zéro.
 
-### Traitement
+### Couverture
 
-1. Filtre sur le milieu `Sol (mg/kg)` et exclusion des valeurs `< LOQ` (plante ou sol).
-2. Conversion matière fraîche → matière sèche via un % MS par défaut selon le type de plante (`_PCT_MS_DEFAULT`, pas de lookup APRIFEL contrairement au pipeline métaux).
-3. Regroupement par `(congénère × catégorie INERIS)` - mapping depuis `Type plante` vers 6 catégories atteignables en pratique (`legumes_feuilles`, `legumes_fruits`, `legumes_racines`, `tubercules`, `cereales`, `fourrage`) parmi les 9 catégories définies dans `VEGETAUX_PCB` (`data/vegetaux.py`).
-4. Retrait des outliers par test de Grubbs (α = 5 %) sur les résidus d'une régression OLS préliminaire, puis régression OLS finale sur les données nettoyées (minimum 4 points, `MIN_N`).
-5. `Br` (pente de la régression `Cp_MS = f(Cs)`) retenu comme valeur ponctuelle si r² > 0,5 (`Br_retenu`) ; sinon utiliser l'intervalle `[BCF_min ; BCF_max]`.
+**34 substances** : 7 dioxines, 10 furannes, 17 PCB (dont les 7 indicateurs déjà suivis auparavant). Par catégorie végétale, deux facteurs quand disponibles :
 
-`Bf` (BCF depuis l'air gazeux vers la plante) n'est **pas calculable** depuis BAPPOP - les données terrain/enceinte ne fournissent pas de concentration en air gazeux mesurée. La colonne `Bf` est toujours `None`, à compléter manuellement depuis les tableaux 1-9 du rapport INERIS si nécessaire.
+- **Br** (sol → plante, kg sec.kg⁻¹) - Tableaux 1-6 : tubercules, légumes-racines, légumes-feuilles, légumes-fruits et fruits (hors Cucurbita), Cucurbita (accumulation nettement supérieure, catégorie distincte), fourrage. **Céréales** : Br = 0 pour tous les congénères par convention (grain protégé par une enveloppe, transfert jugé nul). **Ensilage** : identique au fourrage (herbe) ou fourrage ÷ 2 sur min/ponctuelle (maïs, grain non contaminé ≈ 50 % de la MS).
+- **Bf** (air gazeux → plante, m³.kg frais⁻¹) - Tableaux 7-9 : fourrage, légumes-feuilles, légumes-fruits et fruits. **Tubercules** et **céréales** : Bf = 0 (ordonnée à l'origine nulle/grain protégé). **Légumes-racines** et **Cucurbita** : Bf non déterminé par le rapport (données insuffisantes ou apport air jugé négligeable, à ne pas confondre avec une valeur nulle).
 
-> Contrairement au pipeline Métaux, le pipeline PCB ne combine pas encore le résultat avec une concentration sol du site : `data/pcb.py` ne prend pas `sol` en paramètre. Les champs `conc_sol_pcb` et `conc_air_gaz_pcb` du JSON site sont réservés pour une évolution future.
+Chaque groupe `(substance × catégorie)` a un intervalle `[min ; max]` et, si déterminable, une valeur ponctuelle. `main.py::_rows_pcb()` retient la valeur ponctuelle en priorité, sinon le milieu de l'intervalle, sinon l'unique borne connue - et ignore les groupes sans aucune valeur Br publiée.
+
+### Pipeline legacy (régression BAPPOP, conservé pour validation)
+
+`data/pcb.py::compute_bcf_pcb_regression_bappop()` conserve l'ancienne approche : régression OLS `Cp_MS = f(Cs)` recalculée sur les données brutes `data/bappop/bappop.csv` (même projet TROPHé), avec retrait d'outliers par test de Grubbs (α = 5 %), pour les 7 congénères PCB indicateurs uniquement. Cette fonction n'est plus appelée par `main.py` mais reste disponible pour comparer la régression indépendante aux valeurs officielles INERIS sur les congénères communs - un chapitre de validation naturel, les deux approches partant des mêmes données terrain.
+
+> Les champs `conc_sol_pcb` et `conc_air_gaz_pcb` du JSON site restent réservés pour une évolution future (combiner Br/Bf avec une concentration sol/air mesurée sur site, à la manière du pipeline Métaux) - non consommés à ce jour.
 
 ---
 
@@ -360,42 +365,43 @@ python main.py --no-pcb
 |--------|-------|
 | `--site <nom>` | Charge `data/sites/site_<nom>.json` (défaut : `default`) |
 | `--no-metaux` | Ignore le calcul BCF métaux (BAPPET) - famille `Métal` absente des feuilles générées |
-| `--no-pcb` | Ignore le calcul BCF PCB (BAPPOP) - famille `PCB` absente des feuilles générées |
+| `--no-pcb` | Ignore le calcul BCF PCB/PCDD-F (table officielle INERIS) - familles `Dioxine`/`Furanne`/`PCB` absentes des feuilles générées |
 
 ### Résultat console (exemple)
 
 ```
 ----------Chargement paramètres sol : site_default.json
+  [info] temperature non fourni -> valeur par défaut : 17.5
 
 ---------- Sol chargé : site_default
    pH               = 8.0
    MO               = 17.0 %
-   Corg             = 0.0988
-   Densité estimée  = 1.082 kg/dm³
-   Fraction eau     = 0.348
-   Fraction air     = 0.243
+   Corg             = 0.0988  (estime_MO/1.72)
+   Densité estimée  = 0.81 kg/dm³
+   Fraction eau     = 0.305
+   Fraction air     = 0.389
    Température      = 17.5 °C
 
 ----------Calcul BCF polluants organiques...
 
 ----------Calcul BCF métaux (BAPPET)...
 ...
-----------Calcul BCF PCB (BAPPOP)...
-...
+----------Calcul BCF PCB/PCDD-F (table officielle INERIS)...
+
 ----------Export : Br_E_default.xlsx  (4 onglet(s))
-  légumes_feuilles (58 lignes)
-  légumes_fruits (58 lignes)
-  légumes_racines (55 lignes)
-  tubercules (56 lignes)
+  légumes_feuilles (84 lignes)
+  légumes_fruits (84 lignes)
+  légumes_racines (81 lignes)
+  tubercules (82 lignes)
 ```
 
 ---
 
 ## 10. Format de sortie
 
-Fichier Excel `Br_E_<site>.xlsx` avec **une feuille par catégorie végétale**, construite par `main.py::build_sheets_par_vegetal()` qui fusionne les 3 pipelines (organiques/métaux/PCB) dans un schéma de colonnes commun. Seules les catégories ayant au moins une ligne de résultat génèrent une feuille (ex : `fourrage` peut être absente si aucun des 3 pipelines n'a de donnée pour cette catégorie sur le site en cours).
+Fichier Excel `Br_E_<site>.xlsx` avec **une feuille par catégorie végétale**, construite par `main.py::build_sheets_par_vegetal()` qui fusionne les 3 pipelines (organiques/métaux/PCB) dans un schéma de colonnes commun. Seules les catégories listées dans `CATEGORIE_ORDER` génèrent une feuille, et seulement si elles ont au moins une ligne de résultat.
 
-**Catégories** (ordre d'affichage) : `légumes_feuilles`, `légumes_fruits`, `légumes_racines`, `tubercules`, `fruits`, `céréales`, `fourrage`. Les 5 premières viennent de la taxonomie `data/vegetaux.py` (pipeline organiques) ; `céréales`/`fourrage` n'existent que pour les pipelines Métaux/PCB. Les catégories Métaux (`légumes-feuilles`, tirets) et PCB (`legumes_feuilles`, sans accents) sont ramenées à cette taxonomie unique via `_MET_CAT_MAP`/`_PCB_CAT_MAP` dans `main.py`.
+**Catégories** (ordre d'affichage, `CATEGORIE_ORDER` dans `main.py`) : `légumes_feuilles`, `légumes_fruits`, `légumes_racines`, `tubercules` - les 4 catégories de la taxonomie `data/vegetaux.py` (pipeline organiques). Les catégories `fruits` (organiques, arbres fruitiers), `céréales` et `fourrage` (Métaux/PCB), ainsi que `cucurbita`/`ensilage_herbe`/`ensilage_mais` (PCB uniquement) existent dans les pipelines sources mais ne génèrent volontairement pas de feuille dédiée - choix délibéré pour garder un nombre de feuilles restreint aux catégories maraîchères courantes. Les catégories Métaux (`légumes-feuilles`, tirets) et PCB (`legumes_feuilles`, sans accents) sont ramenées à cette taxonomie unique via `_MET_CAT_MAP`/`_PCB_CAT_MAP` dans `main.py`.
 
 Chaque feuille contient une ligne par polluant applicable à la catégorie, toutes familles mélangées (HAP/BTEX/COHV/Métal/PCB), avec les colonnes communes suivantes :
 
@@ -413,9 +419,9 @@ Chaque feuille contient une ligne par polluant applicable à la catégorie, tout
 
 - **Organiques (HAP/BTEX/COHV)** : `Br_E` = sortie directe du modèle sélectionné (§4-5) ; `methode` = nom du modèle (Briggs/Travis_Arms/Mackay_97/PlantX) ; `note` = warnings de `core/validator.py` concaténés (ex : domaine de validité, PlantX hors HAP lourds).
 - **Métal** : `Br_E` = valeur finale calculée par `data/metaux.py` (régression Cs-dépendante ou moyenne géométrique pondérée selon `Br_E_source`, voir [§7](#7-pipeline-métaux-bappet)) ; `methode` = `"<modele> (<Br_E_source>)"` ; `note` = taille d'échantillon, mode de filtrage (`strict`/`assoupli`) et r² de la régression simple si disponible.
-- **PCB** : `Br_E` = `Br` (pente de régression) si `Br_retenu` (r² > 0,5), sinon `BCF_median` en repli ; `methode` indique laquelle des deux voies a été utilisée ; `note` = taille d'échantillon et r² (ou intervalle `[BCF_min ; BCF_max]` si la régression n'est pas retenue).
+- **Dioxine / Furanne / PCB** : `Br_E` = valeur ponctuelle publiée par INERIS (Tableaux 1-6, voir [§8](#8-pipeline-pcbpcddf-table-officielle-ineris)) si disponible, sinon le milieu de l'intervalle `[Br_min ; Br_max]`, sinon l'unique borne connue ; `methode` précise laquelle des trois voies a été utilisée ; `note` = intervalle Br complet et, si publié, le Bf (air gazeux→plante) correspondant.
 
-Les colonnes détaillées propres à chaque pipeline (statistiques de régression complètes pour les métaux, `Bf`/`intercept_air_contrib` pour les PCB, `nb_cycles`/`organe` pour les organiques…) ne sont **pas** reportées dans ce format condensé - elles restent disponibles en appelant directement `compute_bcf_metaux()` / `compute_bcf_pcb()` / `compute_bre()` en Python si une analyse plus fine est nécessaire.
+Les colonnes détaillées propres à chaque pipeline (statistiques de régression complètes pour les métaux, `Bf_min`/`Bf_max`/`pcb_numero` pour les PCB/PCDD-F, `nb_cycles`/`organe` pour les organiques…) ne sont **pas** reportées dans ce format condensé - elles restent disponibles en appelant directement `compute_bcf_metaux()` / `compute_bcf_pcb()` / `compute_bre()` en Python si une analyse plus fine est nécessaire.
 
 ---
 
@@ -424,8 +430,8 @@ Les colonnes détaillées propres à chaque pipeline (statistiques de régressio
 Créer `data/sites/site_<nom>.json` en copiant `site_default.json` et en renseignant :
 
 1. `pH` et `matiere_organique` propres au site ;
-2. optionnellement `pct_argile`, `pct_limon`, `temperature` pour affiner les estimations pédologiques ;
-3. `conc_air` pour chacun des 37 polluants organiques (utiliser le seuil de quantification si non mesuré) ;
+2. optionnellement `pct_argile`, `pct_limon`, `temperature` pour affiner les estimations pédologiques, et `carbone_organique_mgkg` si un COT labo est disponible (remplace l'estimation `MO/1.72`) ;
+3. `conc_air` pour chacun des 36 polluants organiques (utiliser le seuil de quantification si non mesuré) ;
 4. optionnellement `conc_sol_metaux` pour affiner le `Br_E` métaux par régression site-dépendante (sinon moyenne géométrique utilisée par défaut).
 
 Puis lancer :
@@ -456,8 +462,8 @@ python main.py --site <nom>
 - **INERIS DRC-05-57281 (2005)**  
   Modèles de transfert sol-plante des polluants organiques ; validation expérimentale et choix des modèles par organe cible.
 
-- **INERIS-DRC-16-159776-09593A**  
-  Méthodologie de calcul du facteur de transfert sol-plante des PCB (projet TROPHé) ; filtres qualité et régression appliqués dans `data/pcb.py`.
+- **INERIS-DRC-16-159776-09593A** (26/06/2017)  
+  "Paramètres de transfert des polychlorodibenzodioxines, polychlorodibenzofurannes et des polychlorobiphényles, utilisés pour l'évaluation de l'exposition - Application dans le logiciel MODUL'ERS". Tableaux 1-9 (Br/Bf par catégorie végétale, projet TROPHé) transcrits dans `data/pcb_ineris_lookup.py` et utilisés directement par `data/pcb.py::compute_bcf_pcb()`. Méthodologie de régression BAPPOP historique conservée dans `compute_bcf_pcb_regression_bappop()`.
 
 - **RECORD 1994**  
   Fond géochimique naturel français en éléments traces métalliques ; valeurs utilisées pour le filtre F9 (bruit de fond) dans `data/metaux.py` - à vérifier contre le document source (signalé comme tel dans le code).

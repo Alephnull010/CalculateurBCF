@@ -1,21 +1,31 @@
 # -*- coding: utf-8 -*-
 """
-Calcul des Br (BCF sol->plante) pour les PCB par régression linéaire OLS.
-Source : data/bappop/bappop.csv (projet TROPHé INERIS/ADEME)
-Méthode : rapport INERIS-DRC-16-159776-09593A
+Facteurs de bioconcentration PCDD/F (dioxines/furannes) et PCB.
 
-Br = pente de la régression Cp_MS = f(Cs_MS) par congénère × catégorie végétale.
-Valeur retenue si r² > 0.5, sinon utiliser l'intervalle [BCF_min, BCF_max].
+Deux sources disponibles :
 
-Bf (BCF air_gazeux->plante) non calculable depuis BAPPOP (données terrain/enceinte
-sans C_air_gaz mesurée) -> None, à compléter depuis les Tableaux 1-9 du rapport INERIS.
+1. `compute_bcf_pcb_ineris()` (fonction par défaut, exposée comme `compute_bcf_pcb`) :
+   lit directement les Tableaux 1-9 du rapport INERIS-DRC-16-159776-09593A
+   (`data/pcb_ineris_lookup.py`), déjà publiés et validés par INERIS pour
+   MODUL'ERS. Couvre 34 substances (7 dioxines, 10 furannes, 17 PCB) sur les
+   catégories végétales du projet TROPHé, avec Br (sol-plante) et Bf (air
+   gazeux-plante) quand disponible.
+
+2. `compute_bcf_pcb_regression_bappop()` (legacy/validation) : recalcule sa
+   propre régression OLS congénère × catégorie sur les données brutes
+   `data/bappop/bappop.csv` (mêmes données terrain TROPHé, mais retraitées
+   depuis zéro plutôt qu'en reprenant les valeurs officielles). Ne couvre que
+   les 7 congénères PCB présents dans ce CSV, sans dioxines/furannes. Conservée
+   pour comparer/valider les deux approches sur les congénères communs plutôt
+   que retirée, la régression n'étant pas fausse - juste redondante avec les
+   valeurs déjà publiées par INERIS pour ce même projet TROPHé.
 
 Usage module :
     from data.pcb import compute_bcf_pcb
-    df = compute_bcf_pcb()
+    df = compute_bcf_pcb()   # -> table officielle INERIS (par défaut)
 
 Usage standalone :
-    python data/pcb.py   -> data/bcf_pcb_results.csv
+    python data/pcb.py   -> data/bcf_pcb_results.csv (table officielle INERIS)
 """
 
 import sys
@@ -24,6 +34,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from scipy import stats
+
+from data.pcb_ineris_lookup import SUBSTANCES, BR_PAR_CATEGORIE, BF_PAR_CATEGORIE
 
 _DATA_DIR = Path(__file__).parent
 
@@ -116,13 +128,59 @@ def _grubbs_mask(values: np.ndarray) -> np.ndarray:
     return keep
 
 
-# ── Pipeline ───────────────────────────────────────────────────────────────────
+# ── Table officielle INERIS (par défaut) ────────────────────────────────────────
 
-def compute_bcf_pcb(data_path: Path = None,
-                    aprifel_path: Path = None) -> pd.DataFrame:
+def compute_bcf_pcb_ineris() -> pd.DataFrame:
+    """
+    Facteurs de bioconcentration Br (sol-plante) et Bf (air gazeux-plante)
+    publiés par INERIS-DRC-16-159776-09593A (Tableaux 1-9), pour 34 substances
+    (dioxines, furannes, PCB) × catégorie végétale.
+
+    Retourne un DataFrame avec colonnes :
+      substance, sigle, nom, famille, pcb_numero, categorie,
+      Br_min, Br_max, Br_ponctuel, Bf_min, Bf_max, Bf_ponctuel
+
+    `None` dans Br_*/Bf_* signifie valeur non déterminée par le rapport
+    (à distinguer d'une valeur nulle explicite, ex. Br_ponctuel=0 pour les
+    céréales).
+    """
+    rows = []
+    for categorie, br_table in BR_PAR_CATEGORIE.items():
+        bf_table = BF_PAR_CATEGORIE.get(categorie, {})
+        for key, nom, famille, pcb_num, sigle in SUBSTANCES:
+            br_min, br_max, br_pt = br_table.get(key, (None, None, None))
+            bf_min, bf_max, bf_pt = bf_table.get(key, (None, None, None))
+            rows.append({
+                "substance":   key,
+                "sigle":       sigle,
+                "nom":         nom,
+                "famille":     famille,
+                "pcb_numero":  pcb_num,
+                "categorie":   categorie,
+                "Br_min":      br_min,
+                "Br_max":      br_max,
+                "Br_ponctuel": br_pt,
+                "Bf_min":      bf_min,
+                "Bf_max":      bf_max,
+                "Bf_ponctuel": bf_pt,
+            })
+    return pd.DataFrame(rows)
+
+
+# Fonction exposée par défaut (voir docstring module) - remplace l'ancienne
+# régression BAPPOP comme source principale du pipeline PCB.
+compute_bcf_pcb = compute_bcf_pcb_ineris
+
+
+# ── Pipeline legacy - régression OLS sur BAPPOP (validation) ───────────────────
+
+def compute_bcf_pcb_regression_bappop(data_path: Path = None,
+                                      aprifel_path: Path = None) -> pd.DataFrame:
     """
     Calcule les Br (pentes OLS Cp_MS = f(Cs)) par congénère × catégorie végétale
-    à partir de BAPPOP.csv (données TROPHé).
+    à partir de BAPPOP.csv (données TROPHé) - recalcul indépendant de la table
+    officielle INERIS (compute_bcf_pcb_ineris), utile pour comparer/valider les
+    deux approches sur les 7 congénères communs.
 
     Retourne un DataFrame avec colonnes :
       congener, congenere_key, categorie, n, n_outliers,
@@ -272,15 +330,23 @@ def compute_bcf_pcb(data_path: Path = None,
 if __name__ == "__main__":
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-    res = compute_bcf_pcb()
-
+    res = compute_bcf_pcb_ineris()
     out_path = _DATA_DIR / "bcf_pcb_results.csv"
-    res.to_csv(out_path, index=False, encoding="utf-8-sig", float_format="%.6f")
-    print(f"\nFichier sauvegardé : {out_path}")
+    res.to_csv(out_path, index=False, encoding="utf-8-sig", float_format="%.6g")
+    print(f"Table officielle INERIS sauvegardée : {out_path} ({len(res)} lignes)")
 
-    pd.options.display.float_format = "{:.4f}".format
+    pd.options.display.float_format = "{:.4g}".format
     pd.options.display.width = 200
-    cols = ["congener", "categorie", "n", "BCF_min", "BCF_max",
-            "BCF_mean", "Br", "r2", "Br_retenu"]
-    print("\n-- Résultats (Br OLS par congénère × catégorie) --")
-    print(res[cols].sort_values(["congener", "categorie"]).to_string(index=False))
+    cols = ["sigle", "famille", "categorie", "Br_min", "Br_max", "Br_ponctuel",
+            "Bf_min", "Bf_max", "Bf_ponctuel"]
+    print("\n-- Table officielle INERIS (extrait) --")
+    print(res[cols].sort_values(["famille", "sigle", "categorie"]).head(20).to_string(index=False))
+
+    print("\n-- Comparaison avec la régression OLS BAPPOP (7 congénères communs) --")
+    res_reg = compute_bcf_pcb_regression_bappop()
+    out_path_reg = _DATA_DIR / "bcf_pcb_regression_bappop.csv"
+    res_reg.to_csv(out_path_reg, index=False, encoding="utf-8-sig", float_format="%.6g")
+    print(f"Régression BAPPOP sauvegardée : {out_path_reg} ({len(res_reg)} lignes)")
+    cols_reg = ["congener", "categorie", "n", "BCF_min", "BCF_max",
+                "BCF_mean", "Br", "r2", "Br_retenu"]
+    print(res_reg[cols_reg].sort_values(["congener", "categorie"]).to_string(index=False))

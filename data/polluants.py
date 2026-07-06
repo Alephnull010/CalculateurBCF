@@ -275,16 +275,16 @@ POLLUANTS = {
         "Pvap": 880, "H": 0.21,
         "source": "EPI Suite / Mackay 2006",
     },
-    "m-xylène": {
+    "m,p-xylène": {
         "famille": "BTEX",
-        "log_kow": 3.20, "log_koc": 2.99, "MW": 106.2,
-        "Pvap": 1000, "H": 0.30,
-        "source": "EPI Suite / Mackay 2006",
-    },
-    "p-xylène": {
-        "famille": "BTEX",
-        "log_kow": 3.15, "log_koc": 2.94, "MW": 106.2,
-        "Pvap": 1170, "H": 0.31,
-        "source": "EPI Suite / Mackay 2006",
+        "log_kow": 3.18, "log_koc": 2.97, "MW": 106.2,
+        "Pvap": 1085, "H": 0.305,
+        "source": "EPI Suite / Mackay 2006 - moyenne simple 50/50 des valeurs pures "
+                  "m-xylène (log_kow 3.20, log_koc 2.99, Pvap 1000, H 0.30) et p-xylène "
+                  "(log_kow 3.15, log_koc 2.94, Pvap 1170, H 0.31). Fusionnées en une seule "
+                  "entrée car m- et p-xylène co-éluent sur la plupart des colonnes GC "
+                  "standards (points d'ébullition quasi identiques, 139°C et 138°C) et sont "
+                  "systématiquement rapportés comme un seul résultat 'm,p-xylène' dans les "
+                  "bulletins d'analyse - contrairement à l'o-xylène (144°C), résolu séparément.",
     },
 }

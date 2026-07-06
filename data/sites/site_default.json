@@ -4,10 +4,12 @@
     "pH":                  8.0,
     "matiere_organique":   0.17,
 
-    "_optionnels": "Si absents → valeurs estimées automatiquement",
+    "_optionnels": "Si absents, les valeurs estimées automatiquement",
     "pct_argile":          25.0,
     "pct_limon":           30.0,
-    "temperature":         17.5,
+
+    "_carbone_organique_mgkg_notice": "Optionnel — COT mesuré en labo (mg/kg). Si renseigné, remplace l'estimation carbone_organique = matiere_organique / 1.72.",
+    "carbone_organique_mgkg": null,
 
     "conc_air": {
         "naphtalène":               4e-12,
@@ -30,8 +32,7 @@
         "toluène":                  7e-9,
         "éthylbenzène":             7e-9,
         "o-xylène":                 7e-9,
-        "m-xylène":                 7e-9,
-        "p-xylène":                 7e-9,
+        "m,p-xylène":               7e-9,
         "chloroforme":              7e-9,
         "tétrachloroéthylène":      7e-9,
         "trichloroéthylène":            7e-9,
@@ -50,12 +51,6 @@
     },
 
     "_conc_sol_metaux_notice": "Optionnel — concentrations sol mesurées sur site (mg/kg MS). Si renseigné, affine le Br_E métaux via la régression BAPPET (Br_E = exp(A + B*ln(Cs))) quand la régression est retenue et Cs dans le domaine de validité.",
-    "conc_sol_metaux": {},
-
-    "_conc_sol_pcb_notice": "Optionnel — concentrations sol PCB mesurées sur site (mg/kg MS). Ex: {\"PCB_28\": 0.001, \"PCB_52\": 0.0005}",
-    "conc_sol_pcb": {},
-
-    "_conc_air_gaz_pcb_notice": "Optionnel — concentrations air gazeux PCB mesurées sur site (µg/m³). Ex: {\"PCB_28\": 1e-6}",
-    "conc_air_gaz_pcb": {}
+    "conc_sol_metaux": {}
 
 }
