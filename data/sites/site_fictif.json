@@ -8,7 +8,7 @@
     "pct_argile":          18.0,
     "pct_limon":           22.0,
 
-    "_carbone_organique_mgkg_notice": "Optionnel - COT mesuré en labo (mg/kg). Si renseigné, remplace l'estimation carbone_organique = matiere_organique / 1.72.",
+    "_carbone_organique_mgkg_notice": "COT mesuré en labo (mg/kg). Si renseigné, remplace l'estimation carbone_organique = matiere_organique / 1,724 (facteur de Van Bemmelen). Si matiere_organique est absente, elle est aussi dérivée automatiquement depuis ce COT.",
     "carbone_organique_mgkg": 27000,
 
     "conc_air": {

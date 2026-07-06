@@ -2,10 +2,15 @@ import json
 import os
 import math
 
+# Facteur de Van Bemmelen : MO (%) = Corg (%) × VAN_BEMMELEN_FACTOR
+VAN_BEMMELEN_FACTOR = 1.724
+
 # --- Clés obligatoires dans le JSON ---
+# Note : "matiere_organique" n'est pas listée ici bien qu'obligatoire au sens
+# large — elle est requise SAUF si "carbone_organique_mgkg" est fourni à la
+# place (voir load_sol), auquel cas elle est dérivée automatiquement.
 SOL_REQUIRED_KEYS = [
     "pH",
-    "matiere_organique",
     "conc_air",
 ]
 
@@ -14,7 +19,8 @@ SOL_OPTIONAL_KEYS = {
     "temperature":             17.5,  # °C — Météo-France si non fourni
     "pct_argile":              None,  # % — si None → Rawls utilisé pour densité
     "pct_limon":               None,  # % — si None → Rawls utilisé pour densité
-    "carbone_organique_mgkg":  None,  # mg/kg — COT labo ; si fourni, remplace l'estimation MO/1.72
+    "carbone_organique_mgkg":  None,  # mg/kg — COT labo ; si fourni, remplace l'estimation MO/1.724
+                                       # et peut aussi servir à dériver matiere_organique si absente
 }
 
 
@@ -133,16 +139,20 @@ def load_sol(site_name: str = "default") -> dict:
     Charge et complète les paramètres sol depuis un fichier JSON.
 
     Paramètres obligatoires dans le JSON :
-        pH, matiere_organique, conc_air, conc_sol
+        pH, conc_air, conc_sol, et matiere_organique OU carbone_organique_mgkg
+        (au moins l'un des deux — voir ci-dessous)
 
     Paramètres optionnels (estimés automatiquement si absents) :
         pct_argile, pct_limon, temperature
 
     Paramètres optionnels de mesure directe (remplacent une estimation) :
-        carbone_organique_mgkg — COT mesuré en laboratoire (mg/kg). Si fourni,
-        remplace l'estimation carbone_organique = matiere_organique / 1.72
-        (facteur de Van Bemmelen, une approximation à éviter quand le COT est
-        mesuré directement).
+        carbone_organique_mgkg — COT mesuré en laboratoire (mg/kg). Si fourni :
+        - remplace l'estimation carbone_organique = matiere_organique / 1,724
+          (facteur de Van Bemmelen, une approximation à éviter quand le COT
+          est mesuré directement) ;
+        - et si matiere_organique est absente du JSON, la dérive automatiquement
+          (matiere_organique = carbone_organique_mgkg/1e6 × 1,724) — on peut
+          donc renseigner l'un OU l'autre, pas nécessairement les deux.
 
     Paramètres calculés automatiquement :
         carbone_organique, densite, fraction_eau, fraction_air
@@ -183,6 +193,22 @@ def load_sol(site_name: str = "default") -> dict:
             sol[key] = default
             print(f"  [info] {key} non fourni -> valeur par défaut : {default}")
 
+    # --- matiere_organique : obligatoire, sauf si carbone_organique_mgkg fourni ---
+    if "matiere_organique" not in sol:
+        if sol["carbone_organique_mgkg"] is not None:
+            sol["matiere_organique"] = round(
+                (sol["carbone_organique_mgkg"] / 1e6) * VAN_BEMMELEN_FACTOR, 4
+            )
+            print(
+                f"  [info] matiere_organique non fournie -> dérivée du COT labo : "
+                f"{sol['matiere_organique']:.4f} ({sol['matiere_organique']*100:.2f} %)"
+            )
+        else:
+            raise ValueError(
+                f"Il faut fournir 'matiere_organique' ou 'carbone_organique_mgkg' "
+                f"dans site_{site_name}.json"
+            )
+
     # --- Calculs automatiques ---
     MO         = sol["matiere_organique"]
     pct_argile = sol.get("pct_argile")
@@ -193,8 +219,8 @@ def load_sol(site_name: str = "default") -> dict:
         sol["carbone_organique"]      = round(cot_mgkg / 1e6, 4)
         sol["carbone_organique_source"] = "mesure_labo"
     else:
-        sol["carbone_organique"]      = round(MO / 1.72, 4)
-        sol["carbone_organique_source"] = "estime_MO/1.72"
+        sol["carbone_organique"]      = round(MO / VAN_BEMMELEN_FACTOR, 4)
+        sol["carbone_organique_source"] = "estime_MO/1.724"
 
     sol["densite"]           = estimate_densite(MO, pct_argile, pct_limon)
     sol["fraction_eau"]      = estimate_fraction_eau(MO, pct_argile)

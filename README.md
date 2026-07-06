@@ -125,7 +125,7 @@ Paramètres utilisés par les modèles : `lipide`, `densite`, `evapotranspiratio
 | Clé | Description | Exemple |
 |-----|-------------|---------|
 | `pH` | pH du sol | `8.0` |
-| `matiere_organique` | fraction massique (ex: 0.17 = 17 %) | `0.17` |
+| `matiere_organique` **ou** `carbone_organique_mgkg` | fraction massique de MO (ex: 0.17 = 17 %), **ou** COT labo en mg/kg — au moins l'un des deux (voir plus bas) | `0.17` ou `27000` |
 | `conc_air` | concentration atmosphérique par polluant (µg/m³) | voir JSON |
 
 > **Note - `conc_sol` absente intentionnellement**  
@@ -140,7 +140,7 @@ Paramètres utilisés par les modèles : `lipide`, `densite`, `evapotranspiratio
 | `pct_argile` | % argile | `None` → Rawls (1983) |
 | `pct_limon` | % limon | `None` → Rawls (1983) |
 | `temperature` | °C | `17.5` (Météo-France) - non fourni dans les sites d'exemple, calculé par défaut |
-| `carbone_organique_mgkg` | COT mesuré en labo (mg/kg) | `None` → estimation `MO / 1.72` (facteur de Van Bemmelen). Si fourni, remplace directement cette estimation - à privilégier quand une mesure labo est disponible plutôt que l'approximation depuis la matière organique |
+| `carbone_organique_mgkg` | COT mesuré en labo (mg/kg) | `None` → estimation `MO / 1,724` (facteur de Van Bemmelen). Si fourni : remplace directement cette estimation ; et si `matiere_organique` est absente du JSON, la dérive aussi automatiquement (`MO = COT/1e6 × 1,724`) — les deux champs sont donc interchangeables, un seul suffit |
 
 **Paramètres optionnels spécifiques au pipeline Métaux** :
 
@@ -152,7 +152,8 @@ Paramètres utilisés par les modèles : `lipide`, `densite`, `evapotranspiratio
 
 **Paramètres calculés automatiquement par `load_sol()` :**
 
-- `carbone_organique` = `carbone_organique_mgkg / 1e6` si fourni, sinon `MO / 1.72` (voir `carbone_organique_source` : `"mesure_labo"` ou `"estime_MO/1.72"`)
+- `carbone_organique` = `carbone_organique_mgkg / 1e6` si fourni, sinon `MO / 1,724` (voir `carbone_organique_source` : `"mesure_labo"` ou `"estime_MO/1.724"`)
+- `matiere_organique`, si absente du JSON, dérivée de `carbone_organique_mgkg × 1,724` (sinon erreur : l'un des deux champs est requis)
 - `densite` - Manrique & Jones (1991) si argile+limon disponibles, sinon Rawls (1983)
 - `fraction_eau` - Saxton & Rawls (2006) si argile disponible, sinon 0.30 (INERIS)
 - `fraction_air` = porosité totale − fraction_eau
@@ -391,7 +392,7 @@ python main.py --no-pcb
 ---------- Sol chargé : site_default
    pH               = 8.0
    MO               = 17.0 %
-   Corg             = 0.0988  (estime_MO/1.72)
+   Corg             = 0.0986  (estime_MO/1.724)
    Densité estimée  = 0.81 kg/dm³
    Fraction eau     = 0.305
    Fraction air     = 0.389
@@ -444,8 +445,8 @@ Les colonnes détaillées propres à chaque pipeline (statistiques de régressio
 
 Créer `data/sites/site_<nom>.json` en copiant `site_default.json` et en renseignant :
 
-1. `pH` et `matiere_organique` propres au site ;
-2. optionnellement `pct_argile`, `pct_limon`, `temperature` pour affiner les estimations pédologiques, et `carbone_organique_mgkg` si un COT labo est disponible (remplace l'estimation `MO/1.72`) ;
+1. `pH` propre au site, et `matiere_organique` **ou** `carbone_organique_mgkg` (un seul des deux suffit - voir [§3](#3-données-dentrée)) ;
+2. optionnellement `pct_argile`, `pct_limon`, `temperature` pour affiner les estimations pédologiques ;
 3. `conc_air` pour chacun des 36 polluants organiques (utiliser le seuil de quantification si non mesuré) ;
 4. optionnellement `conc_sol_metaux` pour affiner le `Br_E` métaux par régression site-dépendante (sinon moyenne géométrique utilisée par défaut).
 

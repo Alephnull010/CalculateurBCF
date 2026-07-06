@@ -1,5 +1,5 @@
 {
-    "_notice": "Obligatoires: pH, matiere_organique, conc_air",
+    "_notice": "Obligatoires: pH, conc_air, et matiere_organique OU carbone_organique_mgkg (au moins l'un des deux)",
 
     "pH":                  8.0,
     "matiere_organique":   0.17,
@@ -8,7 +8,7 @@
     "pct_argile":          25.0,
     "pct_limon":           30.0,
 
-    "_carbone_organique_mgkg_notice": "Optionnel — COT mesuré en labo (mg/kg). Si renseigné, remplace l'estimation carbone_organique = matiere_organique / 1.72.",
+    "_carbone_organique_mgkg_notice": "Optionnel — COT mesuré en labo (mg/kg). Si renseigné, remplace l'estimation carbone_organique = matiere_organique / 1,724 (facteur de Van Bemmelen). Si matiere_organique est absente, elle est aussi dérivée automatiquement depuis ce COT — on peut renseigner l'un ou l'autre.",
     "carbone_organique_mgkg": null,
 
     "conc_air": {
