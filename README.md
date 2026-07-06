@@ -29,7 +29,7 @@ Le script produit le facteur de bioconcentration sol-plante pour **trois famille
 | Pipeline | Polluants | Méthode |
 |----------|-----------|---------|
 | **Organiques** | HAP, BTEX, COHV, HCT (36 substances) | Modèles mécanistes/empiriques (Briggs, Travis & Arms, Mackay_97, PlantX) sélectionnés selon organe/H/log Kow |
-| **Métaux** | 15 ETM (As, Cd, Co, Cr, Cu, Hg, Mn, Mo, Ni, Pb, Sb, Se, Tl, V, Zn) | Régression statistique sur données terrain BAPPET, filtres qualité INERIS |
+| **Métaux** | 15 ETM (As, Cd, Co, Cr, Cu, Hg, Mn, Mo, Ni, Pb, Sb, Se, Tl, V, Zn) | 8 ETM : table officielle INERIS-DRC-17-163615 (régression/distribution déjà publiées) ; 7 ETM : régression statistique recalculée sur données terrain BAPPET, filtres qualité INERIS |
 | **PCB/PCDD-F** | 34 substances (7 dioxines, 10 furannes, 17 PCB) | Table Br/Bf officiellement publiée par INERIS (projet TROPHé), lue directement - pas de régression recalculée |
 
 Pour le pipeline **organiques**, pour chaque combinaison `(polluant × végétal)`, le script :
@@ -65,7 +65,8 @@ CalculateurBCF/
     ├── polluants.py         # Base de données polluants organiques (HAP, BTEX, COHV)
     ├── vegetaux.py          # Paramètres des 5 catégories végétales + 9 catégories PCB (VEGETAUX_PCB)
     ├── sol.py               # Chargement, estimation et validation des paramètres sol
-    ├── metaux.py            # Pipeline BCF métaux (BAPPET) - filtres INERIS, régressions OLS, distribution
+    ├── metaux.py            # Pipeline BCF métaux - table officielle INERIS (8 ETM) + régression BAPPET (7 ETM)
+    ├── metaux_ineris_lookup.py # Tableaux 1-9 INERIS-DRC-17-163615-01452A transcrits (8 ETM : As,Cd,Cr,Hg,Ni,Pb,Se,V)
     ├── pcb.py                # Pipeline BCF PCB/PCDD-F - table officielle INERIS (+ régression BAPPOP legacy)
     ├── pcb_ineris_lookup.py # Tableaux 1-9 INERIS-DRC-16-159776-09593A transcrits (Br/Bf, 34 substances)
     ├── bappet/bappet.csv     # Données terrain métaux (source du pipeline Métaux)
@@ -269,11 +270,25 @@ Chaque modèle produit également ses propres warnings de domaine de validité (
 
 ---
 
-## 7. Pipeline Métaux (BAPPET)
+## 7. Pipeline Métaux (BAPPET + table officielle INERIS)
 
-`data/metaux.py` calcule un Br_E pour 15 éléments traces métalliques (ETM) à partir de données terrain sol-plante (`data/bappet/bappet.csv`), selon une méthodologie de filtrage et de régression alignée sur les rapports INERIS. Contrairement au pipeline organiques, ce n'est **pas** un modèle physico-chimique : c'est une régression statistique recalculée à chaque exécution.
+`data/metaux.py` calcule un Br_E pour 15 éléments traces métalliques (ETM). Contrairement au pipeline organiques, ce n'est **pas** un modèle physico-chimique : c'est une régression statistique, mais la source diffère selon le métal :
 
-### Filtres qualité INERIS (F1–F10)
+| ETM | Source |
+|---|---|
+| **As, Cd, Cr, Hg, Ni, Pb, Se, V** (8) | Table officielle publiée par INERIS-DRC-17-163615-01452A (`data/metaux_ineris_lookup.py`) - régression et/ou distribution déjà calculées par INERIS, pas recalculées |
+| **Co, Cu, Mn, Mo, Sb, Tl, Zn** (7) | Régression recalculée à chaque exécution sur `data/bappet/bappet.csv` (sections ci-dessous) |
+
+Le rapport INERIS-DRC-17-163615-01452A (26/06/2017, "Coefficients de transfert des éléments traces métalliques vers les plantes, utilisés pour l'évaluation de l'exposition - Application dans le logiciel MODUL'ERS") publie pour ces 8 ETM, par catégorie végétale, une distribution statistique ajustée (min/max/médiane) et, quand les données le permettent, une régression `ln BCF = intercept + B·ln(Cs) [+ C·pH] [+ D·MO]` avec son domaine de validité. `data/metaux_ineris_lookup.py` transcrit ces valeurs ; `data/metaux.py::_build_ineris_metaux_rows()` les utilise directement, sans repasser par les filtres F1-F10 ni par BAPPET pour ces 8 ETM.
+
+**Calcul du Br_E pour ces 8 ETM :**
+1. Si la régression officielle existe et que toutes les variables qu'elle utilise sont disponibles et dans leur domaine de validité publié → `Br_E = exp(intercept + B·ln(Cs) [+ C·pH] [+ D·MO])`, source `ineris_regression`. Notable différence avec les 7 ETM BAPPET : `pH` et `matière organique` sont des paramètres sol *obligatoires*, donc une régression n'utilisant que ces deux variables (ex. chrome/légumes-feuilles : `ln BCF = -5,3 + 0,25·MO`) est évaluable **même sans `conc_sol_metaux` renseigné** - seules les régressions utilisant `ln(Cs)` exigent que ce champ soit fourni pour ce métal.
+2. Sinon → la médiane publiée (source `ineris_mediane`), ou le milieu de l'intervalle `[min ; max]` si aucune médiane n'est fournie (source `ineris_intervalle_moyen`).
+3. Certaines catégories n'ont pas de données propres et reprennent intégralement celles d'une autre catégorie (ex. tubercules → légumes-racines pour le vanadium) - substitution explicite documentée dans `data/metaux_ineris_lookup.py`.
+
+Ce rapport ne couvre que 8 des 15 ETM - les 7 autres restent entièrement calculés par le pipeline BAPPET décrit ci-dessous.
+
+### Filtres qualité INERIS (F1–F10) — pipeline BAPPET (7 ETM non couverts)
 
 Appliqués séquentiellement sur les données BAPPET avant régression :
 
@@ -296,14 +311,14 @@ Les 6 catégories INERIS (mapping depuis `Type Plante` de BAPPET) : `légumes-fe
 
 Le pourcentage de matière sèche (conversion MF→MS de la concentration plante) est lu depuis BAPPET si disponible, sinon recherché dans `data/aprifel/aprifel_pct_ms.csv` par correspondance exacte/approchée du nom d'espèce, avec fallback sur une valeur par défaut par type de plante.
 
-### Régressions et distribution
+### Régressions et distribution (7 ETM BAPPET)
 
 - **Régression simple OLS** : `ln(BCF) = A + B·ln(Cs)`, calculée si n ≥ 3 points et Cs variable.
 - **Régression multiple OLS** : ajout de `pH` et/ou `matière organique` si n ≥ 9 et présélection Pearson (α = 10 %) + amélioration du R² ajusté.
 - **Distribution ajustée (Anderson-Darling)** : la loi log-normale est retenue si le test AD de log-normalité a un p ≥ 5 % ; sinon la meilleure alternative parmi {normale, Pearson V, gamma, uniforme} (plus petite statistique AD).
 - **Régression retenue** (`regression_retenue`) : la régression simple est jugée plus informative que la distribution si son ratio observé/prédit (`OP_max/OP_min`) est inférieur au plus petit des ratios `BCF_max/BCF_min` et du ratio interpercentile [2,5 % ; 97,5 %] de la distribution.
 
-### Calcul du Br_E final
+### Calcul du Br_E final (7 ETM BAPPET)
 
 Pour chaque groupe `(ETM × catégorie)`, le Br_E dépend de la présence de `conc_sol_metaux` dans le site JSON (`Br_E_source`) :
 
@@ -391,8 +406,8 @@ python main.py --no-pcb
 ----------Export : Br_E_default.xlsx  (4 onglet(s))
   légumes_feuilles (84 lignes)
   légumes_fruits (84 lignes)
-  légumes_racines (81 lignes)
-  tubercules (82 lignes)
+  légumes_racines (83 lignes)
+  tubercules (84 lignes)
 ```
 
 ---
@@ -464,6 +479,9 @@ python main.py --site <nom>
 
 - **INERIS-DRC-16-159776-09593A** (26/06/2017)  
   "Paramètres de transfert des polychlorodibenzodioxines, polychlorodibenzofurannes et des polychlorobiphényles, utilisés pour l'évaluation de l'exposition - Application dans le logiciel MODUL'ERS". Tableaux 1-9 (Br/Bf par catégorie végétale, projet TROPHé) transcrits dans `data/pcb_ineris_lookup.py` et utilisés directement par `data/pcb.py::compute_bcf_pcb()`. Méthodologie de régression BAPPOP historique conservée dans `compute_bcf_pcb_regression_bappop()`.
+
+- **INERIS-DRC-17-163615-01452A** (26/06/2017)  
+  "Coefficients de transfert des éléments traces métalliques vers les plantes, utilisés pour l'évaluation de l'exposition - Application dans le logiciel MODUL'ERS". Tableaux 1-9 (régressions/distributions par ETM × catégorie végétale, 8 ETM : As, Cd, Cr, Hg, Ni, Pb, Se, V) transcrits dans `data/metaux_ineris_lookup.py` et utilisés directement par `data/metaux.py::_build_ineris_metaux_rows()`. Les 7 ETM non couverts par ce rapport (Co, Cu, Mn, Mo, Sb, Tl, Zn) restent calculés par la régression BAPPET.
 
 - **RECORD 1994**  
   Fond géochimique naturel français en éléments traces métalliques ; valeurs utilisées pour le filtre F9 (bruit de fond) dans `data/metaux.py` - à vérifier contre le document source (signalé comme tel dans le code).

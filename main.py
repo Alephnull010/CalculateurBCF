@@ -67,11 +67,13 @@ def _rows_metaux(df_met: pd.DataFrame) -> pd.DataFrame:
     out["famille"]   = "Métal"
     out["polluant"]  = out["ETM"]
     out["methode"]   = out["modele"] + " (" + out["Br_E_source"] + ")"
-    out["note"] = (
-        "n=" + out["n_total"].astype(str)
-        + ", mode=" + out["mode_filtrage"]
-        + out["r2_simple"].apply(lambda r: f", r²={r:.2f}" if pd.notna(r) else "")
-    )
+
+    def _note(r):
+        n_txt = f"n={r['n_total']:.0f}" if pd.notna(r["n_total"]) else "n=?"
+        r2_txt = f", r²={r['r2_simple']:.2f}" if pd.notna(r["r2_simple"]) else ""
+        return f"{n_txt}, mode={r['mode_filtrage']}{r2_txt}"
+
+    out["note"] = out.apply(_note, axis=1)
     return out[_UNIFIED_COLS]
 
 

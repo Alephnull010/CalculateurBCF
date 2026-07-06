@@ -26,6 +26,12 @@ Régression :
   · OLS multiple avec présélection Pearson α = 10 % (XLSTAT-like, INERIS)
   · Distribution ajustée par Anderson-Darling
 
+Pour 8 des 15 ETM (As, Cd, Cr, Hg, Ni, Pb, Se, V), INERIS a directement publié
+les coefficients de transfert (régression et/ou distribution) dans le rapport
+INERIS-DRC-17-163615-01452A - voir `data/metaux_ineris_lookup.py`. Ces 8 ETM
+utilisent cette table officielle plutôt que la régression BAPPET ci-dessus,
+qui reste utilisée pour les 7 ETM non couverts (Co, Cu, Mn, Mo, Sb, Tl, Zn).
+
 Usage module :
   from data.metaux import compute_bcf_metaux
   df = compute_bcf_metaux()          # chemins par défaut (data/bappet/, data/aprifel/)
@@ -44,6 +50,8 @@ from pathlib import Path
 import pandas as pd
 import numpy as np
 from scipy import stats
+
+from data.metaux_ineris_lookup import BR_PAR_ETM, ETM_COUVERTS, resolve_categorie
 
 # -- Config ---------------------------------------------------------------------
 _DATA_DIR = Path(__file__).parent
@@ -586,6 +594,130 @@ def _appliquer_cs_site(res_df: pd.DataFrame, conc_sol: dict) -> pd.DataFrame:
     return res_df
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# ETM couverts par INERIS-DRC-17-163615-01452A (table officielle, pas de régression
+# recalculée sur BAPPET) — voir data/metaux_ineris_lookup.py
+# ═══════════════════════════════════════════════════════════════════════════════
+
+_CAT_DISPLAY_INERIS = {
+    "legumes_feuilles": "légumes-feuilles",
+    "legumes_fruits":   "légumes-fruits",
+    "legumes_racines":  "légumes-racines",
+    "tubercules":       "tubercules",
+    "cereales":         "céréales",
+    "fourrage":         "fourrage",
+}
+
+
+def _eval_regression_ineris(reg: dict, cs: float, pH: float, mo_pct: float):
+    """
+    Évalue ln BCF = intercept + coefs..., seulement si toutes les variables
+    utilisées par CETTE régression sont disponibles et dans leur domaine de
+    validité publié. Contrairement à la régression BAPPET (qui exige
+    conc_sol_metaux), une régression n'utilisant que pH/MO est évaluable même
+    sans concentration sol fournie (pH et matière organique sont toujours
+    connus, ce sont des paramètres obligatoires du site).
+
+    Retourne (Br_E, True) si évaluable, sinon (None, False).
+    """
+    if reg is None:
+        return None, False
+
+    domaine = reg.get("domaine", {})
+    ln_bcf = reg["intercept"]
+
+    if "coef_ln_cs" in reg:
+        if cs is None:
+            return None, False
+        lo, hi = domaine.get("Cs", (-np.inf, np.inf))
+        if not (lo <= cs <= hi):
+            return None, False
+        ln_bcf += reg["coef_ln_cs"] * np.log(cs)
+
+    if "coef_ph" in reg:
+        if pH is None:
+            return None, False
+        lo, hi = domaine.get("pH", (-np.inf, np.inf))
+        if not (lo <= pH <= hi):
+            return None, False
+        ph_val = np.log(pH) if reg.get("ph_log") else pH
+        ln_bcf += reg["coef_ph"] * ph_val
+
+    if "coef_mo" in reg:
+        if mo_pct is None:
+            return None, False
+        lo, hi = domaine.get("MO", (-np.inf, np.inf))
+        if not (lo <= mo_pct <= hi):
+            return None, False
+        ln_bcf += reg["coef_mo"] * mo_pct
+
+    return float(np.exp(ln_bcf)), True
+
+
+def _build_ineris_metaux_rows(sol: dict = None) -> pd.DataFrame:
+    """
+    Construit les lignes Br_E pour les 8 ETM couverts par
+    INERIS-DRC-17-163615-01452A, à partir des coefficients officiellement
+    publiés (data/metaux_ineris_lookup.py) plutôt que de la régression BAPPET.
+    """
+    sol         = sol or {}
+    conc_sol    = sol.get("conc_sol_metaux", {})
+    pH_site     = sol.get("pH")
+    mo_pct_site = sol["matiere_organique"] * 100 if "matiere_organique" in sol else None
+
+    rows = []
+    for etm in sorted(ETM_COUVERTS):
+        etm_table = BR_PAR_ETM[etm]
+        for cat_key in _CAT_DISPLAY_INERIS:
+            entry = resolve_categorie(etm_table, cat_key)
+            if entry is None:
+                continue
+
+            cs_site = conc_sol.get(etm)
+            br_e, used_regression = _eval_regression_ineris(
+                entry.get("regression"), cs_site, pH_site, mo_pct_site
+            )
+            source = "ineris_regression"
+
+            if not used_regression:
+                mediane = entry.get("mediane")
+                if mediane is not None:
+                    br_e, source = mediane, "ineris_mediane"
+                elif entry.get("min") is not None and entry.get("max") is not None:
+                    br_e, source = (entry["min"] + entry["max"]) / 2, "ineris_intervalle_moyen"
+                else:
+                    continue  # aucune valeur disponible pour ce groupe
+
+            reg = entry.get("regression") or {}
+            cs_dom = reg.get("domaine", {}).get("Cs", (None, None))
+            rows.append({
+                "ETM":                 etm,
+                "Categorie_INERIS":    _CAT_DISPLAY_INERIS[cat_key],
+                "Br_E":                br_e,
+                "Br_E_source":         source,
+                "Cs_site":             cs_site if used_regression else None,
+                "BCF_min":             entry.get("min"),
+                "BCF_max":             entry.get("max"),
+                "BCF_median":          entry.get("mediane"),
+                "BCF_mean_geom_pond":  entry.get("mediane"),
+                "Cs_valid_min":        cs_dom[0],
+                "Cs_valid_max":        cs_dom[1],
+                "mode_filtrage":       "ineris_publie",
+                "n_total":             entry.get("n"),
+                "n_outliers_grubbs":   None,
+                "A_simple":            reg.get("intercept"),
+                "B_simple":            reg.get("coef_ln_cs"),
+                "r2_simple":           reg.get("r2"),
+                "p_simple":            None,
+                "regression_retenue":  used_regression,
+                "best_distrib":        None,
+                "unité":               "mg/kg_vegsec / (mg/kg_sol)",
+                "modele":              "INERIS-DRC-17-163615",
+            })
+
+    return pd.DataFrame(rows)
+
+
 def compute_bcf_metaux(data_path: Path = None,
                        aprifel_path: Path = None,
                        sol: dict = None) -> pd.DataFrame:
@@ -864,6 +996,14 @@ def compute_bcf_metaux(data_path: Path = None,
     res_df["unité"]  = "mg/kg_vegsec / (mg/kg_sol)"
     res_df["modele"] = "BAPPET_OLS"
 
+    # -- Retrait des ETM couverts par INERIS-DRC-17-163615-01452A ---------------
+    # (As, Cd, Cr, Hg, Ni, Pb, Se, V) : remplacés plus bas par la table
+    # officielle plutôt que la régression BAPPET recalculée ci-dessus.
+    n_avant_retrait = len(res_df)
+    res_df = res_df[~res_df["ETM"].isin(ETM_COUVERTS)].copy()
+    print(f"\n-- ETM couverts par INERIS-DRC-17-163615-01452A : {sorted(ETM_COUVERTS)} --")
+    print(f"  {n_avant_retrait - len(res_df)} groupes BAPPET retirés (remplacés par la table officielle)")
+
     if conc_sol:
         n_reg  = (res_df["Br_E_source"] == "regression").sum()
         n_geom = len(res_df) - n_reg
@@ -885,6 +1025,16 @@ def compute_bcf_metaux(data_path: Path = None,
     print(f"  Régression simple OLS   (n ≥ {MIN_N_SIMPLE})                  : {n_simple}")
     print(f"  Régression multiple OLS (n ≥ {MIN_N_MULTIPLE}, ≥1 var Pearson) : {n_multiple}")
     print(f"  dont Fisher significatif (p < 0.05)              : {n_fisher_ok}")
+
+    # -- Ajout des ETM couverts par la table officielle INERIS ------------------
+    df_ineris = _build_ineris_metaux_rows(sol)
+    n_reg_ineris = (df_ineris["Br_E_source"] == "ineris_regression").sum()
+    print(f"\n-- ETM depuis table officielle INERIS-DRC-17-163615-01452A --")
+    print(f"  {len(df_ineris)} groupes ({sorted(ETM_COUVERTS)})")
+    print(f"  dont Br_E par régression officielle (pH/MO/Cs) : {n_reg_ineris}")
+    print(f"  dont Br_E par médiane/intervalle publié        : {len(df_ineris) - n_reg_ineris}")
+
+    res_df = pd.concat([res_df, df_ineris], ignore_index=True)
 
     return res_df
 
