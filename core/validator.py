@@ -29,6 +29,20 @@ def check_warnings(
                 "PlantX validé uniquement sur tomate/haricot"
             )
 
+    # Kipopoulou et al. (1999) : mesure carotte extrapolée à racine/tubercule
+    if modele == "Kipopoulou_1999":
+        warnings.append(
+            "Kipopoulou et al. (1999) : BCF mesuré sur carotte (Thessalonique) "
+            "extrapolé à l'ensemble légumes racines/tubercules — une part de la "
+            "contamination mesurée peut provenir de l'adhésion de particules de sol "
+            "plutôt que d'une absorption réelle ; préciser épluchage/lavage en exposition"
+        )
+        if polluant["nom"] in {"acénaphtylène", "acénaphtène", "fluorène"}:
+            warnings.append(
+                "BCF dérivé par régression interne (log BCF = 2.809 - 0.5703×log Kow, "
+                "R=-0.85, n=12), faute de mesure directe dans Kipopoulou (1999)"
+            )
+
     # BCF négatif ou nul
     if bcf <= 0:
         warnings.append("ERREUR : BCF <= 0 : vérifier les paramètres d'entrée")

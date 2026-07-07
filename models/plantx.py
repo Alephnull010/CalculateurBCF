@@ -60,9 +60,9 @@ def plantx_bcf(polluant: dict, vegetal: dict, sol: dict) -> dict:
         Cair     = sol["conc_air"][polluant["nom"]]  # µg/m³
         Cair_mgl = Cair * 1e-6             # µg/m³ → mg/L
 
-        # Terme sol [kg/j] + terme air [mg/j → kg/j via ×1e-6]
+        # Terme sol et terme air déjà normalisés par Csol (implicite Csol=1 mg/kg)
         BCF_feuille = (
-            (F_feuille_sur_Csol + Cair_mgl * gA / H * 1e-6)
+            (F_feuille_sur_Csol + Cair_mgl * gA / H)
             / (gA / (H * V_feuille) + lambda_f)
         )
         result["BCF_feuille"] = BCF_feuille
@@ -71,7 +71,7 @@ def plantx_bcf(polluant: dict, vegetal: dict, sol: dict) -> dict:
     if vegetal["organe"] == "fruit":
         Kphloem = 0.1  # L/jour — conductance phloème (défaut)
         BCF_fruit = (
-            (Kphloem * BCF_feuille + Cair_mgl * gA / (H * V_fruit) * 1e-6)
+            (Kphloem * BCF_feuille + Cair_mgl * gA / (H * V_fruit))
             / (Kphloem / V_fruit + lambda_fr)
         )
         result["BCF_fruit"] = BCF_fruit

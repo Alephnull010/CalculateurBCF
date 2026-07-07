@@ -2,6 +2,7 @@ from models.briggs       import briggs_bcf, briggs_validity
 from models.travis_arms  import travis_arms_bcf, travis_arms_validity
 from models.mackay97     import mackay97_bcf
 from models.plantx       import plantx_bcf
+from models.kipopoulou   import kipopoulou_bcf_racine
 from core.selector   import select_model_and_bcf
 from core.validator  import check_warnings
 
@@ -36,6 +37,11 @@ def compute_bre(
 
     elif modele == "PlantX":
         result    = plantx_bcf(p, v, sol)
+        bcf_value = result[cle_bcf]
+        warnings  = []
+
+    elif modele == "Kipopoulou_1999":
+        result    = kipopoulou_bcf_racine(p)
         bcf_value = result[cle_bcf]
         warnings  = []
 

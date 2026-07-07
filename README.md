@@ -168,8 +168,9 @@ Paramètres utilisés par les modèles : `lipide`, `densite`, `evapotranspiratio
 
 ```
 organe = racine
-    log Kow ≤ 5.0  →  Briggs
-    log Kow > 5.0  →  PlantX       (HAP lourds, hors domaine Briggs)
+    famille = HAP et substance ≠ naphtalène  →  Kipopoulou_1999 (mesure/régression carotte)
+    log Kow ≤ 5.0                            →  Briggs
+    log Kow > 5.0                            →  PlantX       (hors domaine Briggs)
 
 organe = feuille
     H > 0.1                        →  Mackay_97    (voie atmosphérique dominante)
@@ -185,6 +186,42 @@ organe = fruit
 ---
 
 ## 5. Modèles de calcul (organiques)
+
+### Kipopoulou et al. (1999) - HAP, racines (légumes_racines + tubercules)
+
+Remplace Briggs/PlantX pour tous les HAP en organe racine, sauf le naphtalène (reste
+sur Briggs, dans son domaine de validité). Source : Kipopoulou, Manoli & Samara
+(1999), *Environ. Pollut.* 106:369-380, Tableau 6 (BCF_SV mesuré sur carotte épluchée,
+sol agricole industriel de Thessalonique, n=12, base sèche pour sol et végétal).
+
+**Répartition des 16 substances HAP :**
+- **12 mesurées directement** (Tableau 6) : phénanthrène, anthracène, fluoranthène,
+  pyrène, benzo(a)anthracène, chrysène, benzo(b)fluoranthène, benzo(k)fluoranthène,
+  benzo(a)pyrène, dibenzo(a,h)anthracène, benzo(g,h,i)pérylène, indéno(1,2,3-cd)pyrène.
+- **3 dérivées par régression interne** (non couvertes par une mesure directe au
+  Tableau 6) : acénaphtylène, acénaphtène, fluorène, via une régression log-linéaire
+  recalculée sur les 12 points mesurés ci-dessus vs le log Kow du jeu de données
+  interne (`data/polluants.py`) :
+
+  ```
+  log BCF = 2.809 − 0.5703 × log Kow      (R = −0.850, n = 12)
+  ```
+
+- **1 inchangée** : naphtalène (log Kow = 3.40 ∈ [−0.57 ; 3.7]) — reste sur Briggs.
+
+**Limites méthodologiques :**
+- Espèce unique (carotte), extrapolée ici à `légumes_racines` **et** `tubercules` —
+  simplification assumée faute de données publiées par espèce.
+- Une partie de la contamination mesurée en végétal peut provenir de l'adhésion de
+  particules de sol en surface plutôt que d'une absorption réelle — à prendre en
+  compte dans les hypothèses d'épluchage/lavage pour l'exposition.
+- Écart ×50-100 avec Samsøe-Petersen (2002) sur le benzo(a)pyrène (0.19 vs
+  0.002-0.004) : la valeur Kipopoulou retenue ici est la plus conservatrice des deux
+  études — choix protecteur assumé en ERS, à valider explicitement par le comité
+  plutôt que de le découvrir dans le code.
+- Valeurs transcrites depuis l'article original par l'utilisateur du projet ; non
+  revérifiées indépendamment par recherche automatisée (ScienceDirect et ResearchGate
+  ont renvoyé une erreur 403 lors des tentatives de lecture).
 
 ### Briggs et al. (1982) - racines, log Kow ≤ 5.0
 
@@ -232,7 +269,7 @@ Modèle fugacité 3 compartiments. Calcule la concentration foliaire à partir d
 Sensible à `conc_air` : utiliser une mesure représentative du site.
 
 **Note sur la voie atmosphérique :**  
-Le terme sol `TSCF × Ceau/Csol × Q` est en kg/j (ρb normalisé par Csol) ; le terme air `Cair × gA / H` est converti de mg/j en kg/j (facteur 1e-6) pour homogénéité. Pour des concentrations en air typiques (< 1 000 µg/m³), la voie atmosphérique reste négligeable devant la voie sol dans le calcul du Br_E.
+Le terme sol `TSCF × Ceau/Csol × Q` et le terme air `Cair × gA / H` sont tous deux normalisés par Csol (implicite Csol=1 mg/kg) et directement homogènes — aucune conversion d'unité supplémentaire entre les deux. `BCF_feuille` est donc sensible à `conc_air`, en proportion de son poids relatif face au terme sol.
 
 ### PlantX - Trapp & Matthies (1995) - bilan de masse
 
@@ -246,11 +283,11 @@ Modèle mécaniste à l'état pseudo-stationnaire. La chaîne de calcul est cond
 
 **Uniquement si feuille ou fruit :**
 - BCF_feuille = bilan flux xylème entrant + échange atmosphérique  
-  (terme air converti de mg/j en kg/j par ×1e-6 pour homogénéité avec le terme sol)
+  (terme air `Cair × gA / H`, homogène sans conversion supplémentaire avec le terme sol)
 
 **Uniquement si fruit :**
 - BCF_fruit = bilan flux phloème (depuis feuille) + échange atmosphérique  
-  (même conversion ×1e-6 sur le terme air)
+  (même terme air, sans conversion supplémentaire)
 
 ---
 
@@ -263,6 +300,8 @@ Modèle mécaniste à l'état pseudo-stationnaire. La chaîne de calcul est cond
 | PlantX + log Kow > 5.0 | Modèle non validé pour les HAP lourds |
 | Mackay_97 + organe feuille | BCF sensible à `conc_air` - utiliser une mesure site |
 | **PlantX** + organe fruit + exemples hors tomate/haricot | PlantX validé sur tomate/haricot uniquement |
+| Kipopoulou_1999 | Mesure carotte extrapolée à racine/tubercule - part possible d'adhésion de particules de sol, préciser épluchage/lavage |
+| Kipopoulou_1999 + acénaphtylène/acénaphtène/fluorène | BCF dérivé par régression interne, faute de mesure directe |
 | BCF ≤ 0 | Erreur - vérifier les paramètres d'entrée |
 
 > Le warning fruit est restreint au modèle PlantX : Travis & Arms est une régression empirique générale sur parties aériennes qui ne dépend pas de la validation expérimentale tomate/haricot.
@@ -477,6 +516,9 @@ python main.py --site <nom>
 
 - **INERIS DRC-05-57281 (2005)**  
   Modèles de transfert sol-plante des polluants organiques ; validation expérimentale et choix des modèles par organe cible.
+
+- **Kipopoulou, Manoli & Samara (1999)** - Environ Pollut 106:369–380  
+  BCF sol-racine mesurés (carotte) pour 12 HAP ; utilisés directement (+ régression interne pour 3 HAP légers) pour tous les HAP en organe racine hors naphtalène.
 
 - **INERIS-DRC-16-159776-09593A** (26/06/2017)  
   "Paramètres de transfert des polychlorodibenzodioxines, polychlorodibenzofurannes et des polychlorobiphényles, utilisés pour l'évaluation de l'exposition - Application dans le logiciel MODUL'ERS". Tableaux 1-9 (Br/Bf par catégorie végétale, projet TROPHé) transcrits dans `data/pcb_ineris_lookup.py` et utilisés directement par `data/pcb.py::compute_bcf_pcb()`. Méthodologie de régression BAPPOP historique conservée dans `compute_bcf_pcb_regression_bappop()`.

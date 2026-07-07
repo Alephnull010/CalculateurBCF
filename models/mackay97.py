@@ -48,10 +48,9 @@ def mackay97_bcf(polluant: dict, vegetal: dict, sol: dict) -> dict:
     Cair = sol["conc_air"][polluant["nom"]]  # µg/m³ → converti en mg/L
     Cair_mgl = Cair * 1e-6  # µg/m³ → mg/L  (÷1e3 pour µg→mg, ÷1e3 pour m³→L)
 
-    # Cfeuille/Csol — les deux termes en kg/j
-    # (Ceau_sur_Csol [kg/L] × Q [L/j] = kg/j ; Cair_mgl [mg/L] × gA [L/j] = mg/j → ×1e-6)
+    # Cfeuille/Csol — les deux termes déjà normalisés par Csol (implicite Csol=1 mg/kg)
     numerateur = (TSCF * Ceau_sur_Csol * Q
-                  + Cair_mgl * gA / H * 1e-6)
+                  + Cair_mgl * gA / H)
     denominateur_f = (Q / Kfw_feuille + gA)
     BCF_feuille = numerateur / denominateur_f
 

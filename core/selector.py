@@ -7,7 +7,8 @@ def select_model_and_bcf(
 
     Critères de sélection :
       racine (légumes_racines + tubercules)
-          → Briggs (modèle sol-racine, orge hydroponique)
+          HAP (hors naphtalène) → Kipopoulou et al. (1999) (mesure/régression carotte)
+          sinon → Briggs (modèle sol-racine, orge hydroponique)
       feuille
           H > 0.1              → Mackay_97  (voie atmosphérique significative)
           H ≤ 0.1, Kow ∈ [1;8] → Travis_Arms  (parties aériennes, MODUL'ERS)
@@ -22,6 +23,8 @@ def select_model_and_bcf(
     kaw     = polluant["H"]
 
     if organe == "racine":
+        if polluant["famille"] == "HAP" and polluant["nom"] != "naphtalène":
+            return ("Kipopoulou_1999", "BCF_racine")
         if log_kow <= 5.0:
             return ("Briggs", "BCF_racine")
         return ("PlantX", "BCF_racine")
